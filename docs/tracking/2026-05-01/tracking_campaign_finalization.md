@@ -23,7 +23,13 @@
 - **Objectif** : Créer un cas d'école pour démontrer l'efficacité de BLA sur une petite échelle.
 - **Action** : Réduction de la bande passante sur les chemins par défaut (First) pour forcer le basculement vers des chemins alternatifs plus longs mais moins chargés.
 
-### C. Migration vers le Nouveau Repository
+### C. Correction des Bugs Critiques (Core Java)
+- **Activation M/M/1** : Modification de `LinkSelectionPolicyDynamicLatencyBw` pour utiliser la bande passante allouée (canaux dédiés) comme proxy de charge initiale. Cela permet d'activer le modèle M/M/1 dès la première requête, évitant un `rho=0` erroné.
+- **Ordre de Soumission (SDNBroker)** : Correction de la réassignation des timestamps (`.time`) lors de la soumission des workloads. CloudSim respecte désormais l'ordre exact dicté par le scheduler (SJF, Priority, etc.).
+- **Calcul SLA (Transmission/Writer)** : Suppression du double comptage du délai de processing dans le calcul du temps attendu. Le SLA est désormais précis et ne manque plus de violations réelles.
+- **Robustesse Writer** : Correction d'une récursion infinie dans `WorkloadResultWriter` lors de l'affichage des titres de requêtes complexes.
+
+### D. Migration vers le Nouveau Repository
 - **Dépôt cible** : `https://github.com/Qnadia/RASSDNCLOUDSIM-010526`
 - **Contrainte** : Limite de taille de fichier de GitHub (100 Mo).
 - **Stratégie** :
