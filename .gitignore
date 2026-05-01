@@ -28,8 +28,6 @@ results/*
 
 **/consolidated*.csv
 
-
-
 # Simulation result files
 *.csv
 !results/**/*.csv
@@ -37,11 +35,12 @@ results/*
 # Archives
 *.zip
 
-
 # Exclure tous les fichiers consolidated et GLOBAL_MASTER
 **/GLOBAL_MASTER_*.csv
 **/consolidated_*.csv
 **/*link_utilization*.csv
 
-# Include today's results but explicitly ignore ALL massive CSV files inside
-!results/2026-05-01/
+# Untracked/Unwanted folders
+datasetsH/
+example-edge/
+example-intercloud/
