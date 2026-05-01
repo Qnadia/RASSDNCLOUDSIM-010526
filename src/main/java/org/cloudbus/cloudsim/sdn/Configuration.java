@@ -77,7 +77,7 @@ public class Configuration {
     // Flags de débogage
     public static boolean DEBUG_RESULT_WRITE_DETAIL = true;
     public static boolean DEBUG_PRINT_DETAIL_SIZE_TIME = true;
-    public static boolean DEBUG_CHECK_OVER_TIME_REQUESTS = false;
+    public static boolean DEBUG_CHECK_OVER_TIME_REQUESTS = true;
 
     // Facteurs de mise à l'échelle par défaut
     public static final double CPU_SIZE_MULTIPLY = 1; // Pas de mise à l'échelle

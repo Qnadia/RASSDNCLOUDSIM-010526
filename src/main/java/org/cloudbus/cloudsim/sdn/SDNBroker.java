@@ -41,6 +41,7 @@ import org.cloudbus.cloudsim.sdn.policies.selectlink.LinkSelectionPolicy;
 import org.cloudbus.cloudsim.sdn.policies.wfallocation.NoOpWorkloadScheduler;
 import org.cloudbus.cloudsim.sdn.policies.wfallocation.SJFWorkloadScheduler;
 import org.cloudbus.cloudsim.sdn.policies.wfallocation.WorkloadSchedulerPolicy;
+import org.cloudbus.cloudsim.sdn.policies.wfallocation.PSO.PSOWorkloadScheduler;
 import org.cloudbus.cloudsim.sdn.qos.QoSMonitor;
 // import org.cloudbus.cloudsim.sdn.sfc.ServiceFunction; // removed: sfc package deleted
 // import org.cloudbus.cloudsim.sdn.sfc.ServiceFunctionChainPolicy; // removed: sfc package deleted
@@ -173,24 +174,26 @@ public class SDNBroker extends SimEntity {
     public void submitRequests(WorkloadParser workloadParser, int parserId) {
         System.out.println("🚀 Submitting requests from WorkloadParser ID: " + parserId);
 
-        // Récupérer les workloads parsés
-        workloadParser.parseNextWorkloads(); // ou parseNextWorkloadsSJF() si vous utilisez SJF
+        workloadParser.parseNextWorkloads();
         List<Workload> workloads = workloadParser.getParsedWorkloads();
 
-        // ➕ Injection de stratégie de tri
         if (workloadSchedulerPolicy != null) {
             workloads = workloadSchedulerPolicy.sort(workloads);
 
-            // FIX IT34: Add micro-offsets to maintain sorted order in CloudSim's event queue
-            // for workloads having the same original timestamp.
-            for (int i = 0; i < workloads.size(); i++) {
-                workloads.get(i).time += (i * 1e-9); 
+            // ✅ FIX BUG-01 : réassigner les .time depuis baseTime pour que
+            // CloudSim soumette dans l'ordre exact du scheduler.
+            // PSO gère ses propres timestamps — on l'exclut.
+            if (!(workloadSchedulerPolicy instanceof PSOWorkloadScheduler)) {
+                double baseTime = workloads.get(0).time; // ← temps du 1er dans l'ordre trié
+                for (int i = 0; i < workloads.size(); i++) {
+                    workloads.get(i).time = baseTime + i * 1e-6; // ← réassignation complète, pas +=
+                }
             }
 
-            System.out.println("📋 Tri appliqué via stratégie: " + workloadSchedulerPolicy.getName() + " (with micro-offsets)");
+            System.out.println("📋 Tri appliqué: " + workloadSchedulerPolicy.getName());
         }
 
-        System.out.println("📦 Batching workloads into time windows for Map-Reduce processing...");
+        System.out.println("📦 Batching workloads...");
         java.util.Map<Double, java.util.List<Workload>> groupedWorkloads = workloads.stream()
                 .collect(java.util.stream.Collectors.groupingBy(w -> w.time));
 
@@ -201,12 +204,55 @@ public class SDNBroker extends SimEntity {
         }
     }
 
+    /*
+     * public void submitRequests(WorkloadParser workloadParser, int parserId) {
+     * System.out.println("🚀 Submitting requests from WorkloadParser ID: " +
+     * parserId);
+     * 
+     * // Récupérer les workloads parsés
+     * workloadParser.parseNextWorkloads(); // ou parseNextWorkloadsSJF() si vous
+     * utilisez SJF
+     * List<Workload> workloads = workloadParser.getParsedWorkloads();
+     * 
+     * // ➕ Injection de stratégie de tri
+     * if (workloadSchedulerPolicy != null) {
+     * workloads = workloadSchedulerPolicy.sort(workloads);
+     * 
+     * // FIX IT34: Add micro-offsets to maintain sorted order in CloudSim's event
+     * queue
+     * // for workloads having the same original timestamp.
+     * for (int i = 0; i < workloads.size(); i++) {
+     * workloads.get(i).time += (i * 1e-9);
+     * }
+     * 
+     * System.out.println("📋 Tri appliqué via stratégie: " +
+     * workloadSchedulerPolicy.getName() + " (with micro-offsets)");
+     * }
+     * 
+     * System.out.
+     * println("📦 Batching workloads into time windows for Map-Reduce processing..."
+     * );
+     * java.util.Map<Double, java.util.List<Workload>> groupedWorkloads =
+     * workloads.stream()
+     * .collect(java.util.stream.Collectors.groupingBy(w -> w.time));
+     * 
+     * for (java.util.Map.Entry<Double, java.util.List<Workload>> entry :
+     * groupedWorkloads.entrySet()) {
+     * double time = entry.getKey();
+     * java.util.List<Workload> batch = entry.getValue();
+     * scheduleWorkloadBatch(batch, time, parserId);
+     * }
+     * }
+     */
+
     public void scheduleWorkloadBatch(java.util.List<Workload> batch, double time, int parserId) {
-        if (batch == null || batch.isEmpty()) return;
+        if (batch == null || batch.isEmpty())
+            return;
 
         double scheduleTime = time - org.cloudbus.cloudsim.core.CloudSim.clock();
         if (scheduleTime < 0) {
-            org.cloudbus.cloudsim.Log.printLine("**" + org.cloudbus.cloudsim.core.CloudSim.clock() + ": SDNBroker: Abnormal start time for Workload Batch at " + time);
+            org.cloudbus.cloudsim.Log.printLine("**" + org.cloudbus.cloudsim.core.CloudSim.clock()
+                    + ": SDNBroker: Abnormal start time for Workload Batch at " + time);
             return;
         }
 
@@ -224,7 +270,8 @@ public class SDNBroker extends SimEntity {
                 requestMap.put(terminalRequest.getRequestId(), wl);
             }
         }
-        org.cloudbus.cloudsim.Log.printLine(org.cloudbus.cloudsim.core.CloudSim.clock() + ": SDNBroker: Scheduled batch of " + batch.size() + " workloads at " + time);
+        org.cloudbus.cloudsim.Log.printLine(org.cloudbus.cloudsim.core.CloudSim.clock()
+                + ": SDNBroker: Scheduled batch of " + batch.size() + " workloads at " + time);
     }
     // public void submitRequests(WorkloadParser wp, int parserId) {
     // System.out.println("📤 Submitting workload file: " + wp.getFile() + " with
@@ -1307,8 +1354,9 @@ public class SDNBroker extends SimEntity {
      * @param workloadFile Le fichier de workload à soumettre.
      */
     public void submitRequests(String workloadFileName) {
-        WorkloadParser wp = new WorkloadParser(workloadFileName, getId(), new org.cloudbus.cloudsim.UtilizationModelFull(), 
-            getVmNameIdMap(), getFlowNameIdMap(), getFlowIdToBandwidthMap());
+        WorkloadParser wp = new WorkloadParser(workloadFileName, getId(),
+                new org.cloudbus.cloudsim.UtilizationModelFull(),
+                getVmNameIdMap(), getFlowNameIdMap(), getFlowIdToBandwidthMap());
         submitRequests(wp, 0);
     }
 
@@ -1489,7 +1537,8 @@ public class SDNBroker extends SimEntity {
 
                 // QoS Monitoring Dynamique
                 QoSMonitor.recordDelay(m.requestId, m.srcVmName, m.dstVmName, m.packetSizeBytes, m.totalLatency * 1000,
-                    m.processingDelay * 1000, m.propagationDelay * 1000, m.transmissionDelay * 1000, m.queueingDelay * 1000);
+                        m.processingDelay * 1000, m.propagationDelay * 1000, m.transmissionDelay * 1000,
+                        m.queueingDelay * 1000);
 
                 if (checkSlaViolation(req, m.totalLatency)) {
                     m.isSlaViolated = true;
@@ -1616,11 +1665,18 @@ public class SDNBroker extends SimEntity {
                 + "ms)";
     }
 
+    // ✅ Fix dans SDNBroker.checkSlaViolation()
     private boolean checkSlaViolation(Request req, double actualLatency) {
         double expectedLatency = 0;
-        for (Activity act : req.getActivities()) {
+        // getRemovedActivities() contient les activités déjà exécutées
+        List<Activity> acts = req.getRemovedActivities();
+        if (acts.isEmpty())
+            acts = req.getActivities(); // fallback
+        for (Activity act : acts) {
             expectedLatency += act.getExpectedTime();
         }
+        if (expectedLatency == 0)
+            return false; // guard : pas de SLA possible
         return actualLatency > expectedLatency * Configuration.DECIDE_SLA_VIOLATION_GRACE_ERROR;
     }
 

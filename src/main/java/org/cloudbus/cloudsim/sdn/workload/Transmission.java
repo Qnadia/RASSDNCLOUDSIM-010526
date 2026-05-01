@@ -162,51 +162,28 @@ public class Transmission implements Activity {
 
 	@Override
 	public double getExpectedTime() {
-		// MAJ Nadia/Antigravity : Correction du bug SLA. 
-		// On ne doit JAMAIS retourner la durée réelle (Finish - Start), 
-		// sinon le SLA réseau n'est jamais violé. On calcule le temps IDÉAL.
-		
-		double time = Double.POSITIVE_INFINITY;
-
-		if (requestedBw > 0) {
-			double efficiency = 0.9;
-			double transmissionDelay = (double) pkt.getSize() * 8 / (efficiency * requestedBw);
-
-			double processingDelay = 0;
-			if (nos != null) {
-				int srcId = pkt.getOrigin();
-				SDNHost srcHost = (SDNHost) nos.findHost(srcId);
-				if (srcHost != null) {
-					Request req = pkt.getPayload();
-					if (req != null) {
-						Cloudlet cl = req.getProcessingCloudlet();
-						if (cl != null) {
-							long cloudletLen = cl.getCloudletLength();
-							int vmId = cl.getVmId();
-							processingDelay = srcHost.calculateProcessingDelay(cloudletLen, vmId);
-						}
-					}
-				}
-			}
-
-			double propagationDelay = 0;
-			if (pkt != null && pkt.getPayload() != null) {
-				// MAJ: Le délai de propagation (distance physique des câbles) est accumulé
-				// par le simulateur. On l'ajoute au temps théorique pour que le SLA
-				// pardonne la distance physique, mais pénalise la congestion.
-				propagationDelay = pkt.getPayload().getPropagationDelay();
-			}
-
-			time = transmissionDelay + processingDelay + propagationDelay;
-		} else {
-			// Fallback: This should ideally not happen if SDNDatacenter/NOS set durations
-			// correctly.
-			requestedBw = 1e6; // 1 Mbps default
-			double transmissionDelay = (double) pkt.getSize() * 8 / (0.9 * requestedBw);
-			time = transmissionDelay;
+		if (requestedBw <= 0) {
+			requestedBw = 1e6; // 1 Mbps fallback
 		}
 
-		return time;
+		double efficiency = 0.9;
+
+		// Dtrans : temps idéal pour pousser le paquet sur le lien
+		double transmissionDelay = (double) pkt.getSize() * 8 / (efficiency * requestedBw);
+
+		// Dprop : distance physique du câble — pardonnée par le SLA (physique, pas
+		// congestion)
+		double propagationDelay = 0;
+		if (pkt.getPayload() != null) {
+			propagationDelay = pkt.getPayload().getPropagationDelay();
+		}
+
+		// ✅ processingDelay RETIRÉ : le CPU est déjà compté par
+		// Processing.getExpectedTime()
+		// L'inclure ici causait un double comptage → seuil SLA surévalué → violations
+		// manquées
+
+		return transmissionDelay + propagationDelay;
 	}
 
 	public double getTransmissionTime() {

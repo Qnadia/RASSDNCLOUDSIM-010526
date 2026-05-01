@@ -18,18 +18,18 @@ public class WorkloadResultWriter {
     private PrintWriter out = null; // Utiliser PrintWriter directement
 
     // Pour les statistiques
-    private double totalServeTime;    // Temps total de service
-    private double cpuServeTime;      // Temps CPU uniquement
-    private double networkServeTime;  // Temps réseau uniquement
+    private double totalServeTime; // Temps total de service
+    private double cpuServeTime; // Temps CPU uniquement
+    private double networkServeTime; // Temps réseau uniquement
 
-    private int printedWorkloadNum;       // Nombre de workloads imprimés
-    private int overNum;                  // Nombre de workloads dépassant le temps estimé
-    private int timeoutNum = 0;           // Nombre de workloads ayant expiré
+    private int printedWorkloadNum; // Nombre de workloads imprimés
+    private int overNum; // Nombre de workloads dépassant le temps estimé
+    private int timeoutNum = 0; // Nombre de workloads ayant expiré
 
-    private int cloudletNum;              // Nombre de cloudlets
-    private int cloudletOverNum;          // Nombre de cloudlets dépassant le temps estimé
-    private int transmissionNum;          // Nombre de transmissions
-    private int transmissionOverNum;      // Nombre de transmissions dépassant le temps estimé
+    private int cloudletNum; // Nombre de cloudlets
+    private int cloudletOverNum; // Nombre de cloudlets dépassant le temps estimé
+    private int transmissionNum; // Nombre de transmissions
+    private int transmissionOverNum; // Nombre de transmissions dépassant le temps estimé
     private DecimalFormat df = new DecimalFormat();
 
     // Taille du buffer pour l'écriture des workloads
@@ -52,7 +52,6 @@ public class WorkloadResultWriter {
     public void writeResult(Workload wl) {
         System.out.println("🟢 [Writer] Ajout de workload ID: " + wl.getActivities());
         // Et vérifie bien qu'il ajoute aux compteurs internes
-       
 
         printWorkloadBuffer(wl);
     }
@@ -117,82 +116,81 @@ public class WorkloadResultWriter {
     }
 
     // private void printRequestTitle(Request req) {
-    //     System.out.println("######### printRequestTitle");
-    //     List<Activity> acts = req.getRemovedActivities();
-    //     for (Activity act : acts) {
-    //         if (act instanceof Transmission) {
-    //             Transmission tr = (Transmission) act;
+    // System.out.println("######### printRequestTitle");
+    // List<Activity> acts = req.getRemovedActivities();
+    // for (Activity act : acts) {
+    // if (act instanceof Transmission) {
+    // Transmission tr = (Transmission) act;
 
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 print("Tr:StartTime" + SEPARATOR); // Utiliser le séparateur |
-    //                 print("Tr:EndTime" + SEPARATOR);
-    //             }
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // print("Tr:StartTime" + SEPARATOR); // Utiliser le séparateur |
+    // print("Tr:EndTime" + SEPARATOR);
+    // }
 
-    //             print("Tr:NetworkTime" + SEPARATOR);
+    // print("Tr:NetworkTime" + SEPARATOR);
 
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 print("Tr:Size" + SEPARATOR);
-    //                 print("Tr:Channel" + SEPARATOR);
-    //             }
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // print("Tr:Size" + SEPARATOR);
+    // print("Tr:Channel" + SEPARATOR);
+    // }
 
-    //             printRequestTitle(tr.getPacket().getPayload());
-    //         } else {
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 print("Pr:StartTime" + SEPARATOR);
-    //                 print("Pr:EndTime" + SEPARATOR);
-    //             }
+    // printRequestTitle(tr.getPacket().getPayload());
+    // } else {
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // print("Pr:StartTime" + SEPARATOR);
+    // print("Pr:EndTime" + SEPARATOR);
+    // }
 
-    //             print("Pr:CPUTime" + SEPARATOR);
+    // print("Pr:CPUTime" + SEPARATOR);
 
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 print("Pr:Size" + SEPARATOR);
-    //             }
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // print("Pr:Size" + SEPARATOR);
+    // }
 
-    //         }
-    //     }
+    // }
+    // }
     // }
 
     /* MAJ Nadia */
     private void printRequestTitle(Request req) {
         System.out.println("######### printRequestTitle");
-        
-    
+
         if (req == null) {
             System.err.println("⚠️ Request is null! Skipping...");
             return;
         }
-    
+
         List<Activity> acts = req.getRemovedActivities();
-    
+
         if (acts == null || acts.isEmpty()) {
             System.out.println("⚠️ No activities in Request ID: " + req.getRequestId());
             return;
         }
-    
+
         for (Activity act : acts) {
-    
+
             if (act instanceof Transmission) {
                 Transmission tr = (Transmission) act;
-    
+
                 if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
                     print("Tr:StartTime" + SEPARATOR);
                     print("Tr:EndTime" + SEPARATOR);
                 }
-    
+
                 print("Tr:NetworkTime" + SEPARATOR);
-    
+
                 if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
                     print("Tr:Size" + SEPARATOR);
                     print("Tr:Channel" + SEPARATOR);
                 }
-    
+
                 // 🔴 NE PAS RAPPELER printRequestTitle sur le payload !!!
                 Request payload = tr.getPacket().getPayload();
-    
+
                 if (payload != null) {
                     print("Payload Req ID: " + payload.getRequestId() + SEPARATOR);
                     print("Payload User ID: " + payload.getUserId() + SEPARATOR);
-    
+
                     // Facultatif : afficher ses activités (si tu veux)
                     List<Activity> payloadActs = payload.getActivities();
                     if (payloadActs != null && !payloadActs.isEmpty()) {
@@ -203,29 +201,28 @@ public class WorkloadResultWriter {
                     } else {
                         print("Payload has no activities" + SEPARATOR);
                     }
-    
+
                 } else {
                     print("No payload" + SEPARATOR);
                 }
-    
+
             } else if (act instanceof Processing) {
-    
+
                 if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
                     print("Pr:StartTime" + SEPARATOR);
                     print("Pr:EndTime" + SEPARATOR);
                 }
-    
+
                 print("Pr:CPUTime" + SEPARATOR);
-    
+
                 if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
                     print("Pr:Size" + SEPARATOR);
                 }
             }
-    
+
             System.out.println(); // passer à la ligne à la fin de chaque activité
         }
     }
-    
 
     private void printRequest(Request req, boolean includeStatistics) {
         printRequest(req, includeStatistics, new HashSet<>());
@@ -300,53 +297,53 @@ public class WorkloadResultWriter {
         }
     }
     // private void printRequest(Request req, boolean includeStatistics) {
-    //     List<Activity> acts = req.getRemovedActivities();
-    //     for (Activity act : acts) {
-    //         if (act instanceof Transmission) {
-    //             Transmission tr = (Transmission) act;
-    //             double serveTime = tr.getServeTime();
+    // List<Activity> acts = req.getRemovedActivities();
+    // for (Activity act : acts) {
+    // if (act instanceof Transmission) {
+    // Transmission tr = (Transmission) act;
+    // double serveTime = tr.getServeTime();
 
-    //             if (includeStatistics) {
-    //                 networkServeTime += serveTime;
-    //                 transmissionNum++;
+    // if (includeStatistics) {
+    // networkServeTime += serveTime;
+    // transmissionNum++;
 
-    //                 if (isOverTime(tr))
-    //                     transmissionOverNum++;
-    //             }
+    // if (isOverTime(tr))
+    // transmissionOverNum++;
+    // }
 
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 printDetailFloat(tr.getStartTime());   // Start time
-    //                 printDetailFloat(tr.getFinishTime());  // Finish time
-    //             }
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // printDetailFloat(tr.getStartTime()); // Start time
+    // printDetailFloat(tr.getFinishTime()); // Finish time
+    // }
 
-    //             printDetailFloat(serveTime); // Network processing time
+    // printDetailFloat(serveTime); // Network processing time
 
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 printDetailInt(tr.getPacket().getSize());     // Size
-    //                 printDetailInt(tr.getPacket().getFlowId());  // Channel #
-    //             }
-    //             printRequest(tr.getPacket().getPayload(), includeStatistics);
-    //         } else {
-    //             Processing pr = (Processing) act;
-    //             double serveTime = pr.getServeTime();
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // printDetailInt(tr.getPacket().getSize()); // Size
+    // printDetailInt(tr.getPacket().getFlowId()); // Channel #
+    // }
+    // printRequest(tr.getPacket().getPayload(), includeStatistics);
+    // } else {
+    // Processing pr = (Processing) act;
+    // double serveTime = pr.getServeTime();
 
-    //             if (includeStatistics) {
-    //                 cpuServeTime += serveTime;
-    //                 cloudletNum++;
-    //                 if (isOverTime(pr))
-    //                     cloudletOverNum++;
-    //             }
+    // if (includeStatistics) {
+    // cpuServeTime += serveTime;
+    // cloudletNum++;
+    // if (isOverTime(pr))
+    // cloudletOverNum++;
+    // }
 
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 printDetailFloat(pr.getStartTime());   // Start time
-    //                 printDetailFloat(pr.getFinishTime());  // Finish time
-    //             }
-    //             printDetailFloat(serveTime); // Processing time
-    //             if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
-    //                 printDetailInt(pr.cloudletTotalLength); // Size
-    //             }
-    //         }
-    //     }
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // printDetailFloat(pr.getStartTime()); // Start time
+    // printDetailFloat(pr.getFinishTime()); // Finish time
+    // }
+    // printDetailFloat(serveTime); // Processing time
+    // if (Configuration.DEBUG_PRINT_DETAIL_SIZE_TIME) {
+    // printDetailInt(pr.cloudletTotalLength); // Size
+    // }
+    // }
+    // }
     // }
 
     private void printHead(Workload sample) {
@@ -506,22 +503,17 @@ public class WorkloadResultWriter {
     }
 
     private boolean isOverTime(final Workload wl, double serveTime) {
-        if (Configuration.DEBUG_CHECK_OVER_TIME_REQUESTS) {
-            double expectedTime = 0;
-            List<Activity> acts = getAllActivities(wl.request);
+        double expectedTime = 0;
+        List<Activity> acts = getAllActivities(wl.request);
 
-            for (Activity ac : acts) {
-                expectedTime += getExpectedTime(ac);
-            }
-
-            if (serveTime > expectedTime * Configuration.DECIDE_SLA_VIOLATION_GRACE_ERROR) {
-                // SLA violated. Served too late.
-                return true;
-            }
-            return false;
+        for (Activity ac : acts) {
+            expectedTime += getExpectedTime(ac);
         }
 
-        return false;
+        if (expectedTime == 0)
+            return false;
+
+        return serveTime > expectedTime * Configuration.DECIDE_SLA_VIOLATION_GRACE_ERROR;
     }
 
     private double getExpectedTime(Activity ac) {
@@ -536,53 +528,57 @@ public class WorkloadResultWriter {
         }
         return expectedTime;
     }
-    /* MAJ Nadia  */
+
+    /* MAJ Nadia */
     private static List<Activity> getAllActivities(Request req) {
         return getAllActivities(req, new HashSet<>());
     }
-    
+
     private static List<Activity> getAllActivities(Request req, Set<Request> processedRequests) {
         List<Activity> outputActList = new ArrayList<>();
-    
-        // If the request has already been processed, return an empty list to avoid infinite recursion
+
+        // If the request has already been processed, return an empty list to avoid
+        // infinite recursion
         if (processedRequests.contains(req)) {
             return outputActList;
         }
         processedRequests.add(req); // Mark this request as processed
-    
+
         // Récupérer d'abord les activités retirées
         List<Activity> acts = req.getRemovedActivities();
         // Si la liste est vide, alors on récupère la liste complète
         if (acts == null || acts.isEmpty()) {
             acts = req.getActivities();
         }
-    
+
         for (Activity act : acts) {
             outputActList.add(act);
             if (act instanceof Transmission) {
                 // Recursively process the payload, passing the set of processed requests
-                outputActList.addAll(getAllActivities(((Transmission) act).getPacket().getPayload(), processedRequests));
+                outputActList
+                        .addAll(getAllActivities(((Transmission) act).getPacket().getPayload(), processedRequests));
             }
         }
         return outputActList;
     }
     // private static List<Activity> getAllActivities(Request req) {
-    //     List<Activity> outputActList = new ArrayList<Activity>();
-    //     // Récupérer d'abord les activités retirées
-    //     List<Activity> acts = req.getRemovedActivities();
-    //     // Si la liste est vide, alors on récupère la liste complète
-    //     if (acts == null || acts.isEmpty()) {
-    //         acts = req.getActivities();
-    //     }
-    //     for (Activity act : acts) {
-    //         outputActList.add(act);
-    //         if (act instanceof Transmission) {
-    //             getAllActivities(((Transmission) act).getPacket().getPayload(), outputActList);
-    //         }
-    //     }
-    //     return outputActList;
+    // List<Activity> outputActList = new ArrayList<Activity>();
+    // // Récupérer d'abord les activités retirées
+    // List<Activity> acts = req.getRemovedActivities();
+    // // Si la liste est vide, alors on récupère la liste complète
+    // if (acts == null || acts.isEmpty()) {
+    // acts = req.getActivities();
     // }
-    
+    // for (Activity act : acts) {
+    // outputActList.add(act);
+    // if (act instanceof Transmission) {
+    // getAllActivities(((Transmission) act).getPacket().getPayload(),
+    // outputActList);
+    // }
+    // }
+    // return outputActList;
+    // }
+
     private static void getAllActivities(Request req, List<Activity> outputActList) {
         List<Activity> acts = req.getRemovedActivities();
         if (acts == null || acts.isEmpty()) {
@@ -595,22 +591,23 @@ public class WorkloadResultWriter {
             }
         }
     }
-    
-    
+
     // private static List<Activity> getAllActivities(Request req) {
-    //     List<Activity> outputActList = new ArrayList<Activity>();
-    //     getAllActivities(req, outputActList);
-    //     return outputActList;
+    // List<Activity> outputActList = new ArrayList<Activity>();
+    // getAllActivities(req, outputActList);
+    // return outputActList;
     // }
 
-    // private static void getAllActivities(Request req, List<Activity> outputActList) {
-    //     List<Activity> acts = req.getRemovedActivities();
-    //     for (Activity act : acts) {
-    //         outputActList.add(act);
-    //         if (act instanceof Transmission) {
-    //             getAllActivities(((Transmission) act).getPacket().getPayload(), outputActList);
-    //         }
-    //     }
+    // private static void getAllActivities(Request req, List<Activity>
+    // outputActList) {
+    // List<Activity> acts = req.getRemovedActivities();
+    // for (Activity act : acts) {
+    // outputActList.add(act);
+    // if (act instanceof Transmission) {
+    // getAllActivities(((Transmission) act).getPacket().getPayload(),
+    // outputActList);
+    // }
+    // }
     // }
 
     // Méthode close()

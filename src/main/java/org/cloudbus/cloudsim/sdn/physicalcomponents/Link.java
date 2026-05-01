@@ -239,7 +239,7 @@ public class Link {
         return this.lowOrder;
     }
 
-    private double getAllocatedBandwidthForDedicatedChannels(Node from) {
+    public double getAllocatedBandwidthForDedicatedChannels(Node from) {
 
         double bw = 0;
         for (Channel ch : getChannels(from)) {
