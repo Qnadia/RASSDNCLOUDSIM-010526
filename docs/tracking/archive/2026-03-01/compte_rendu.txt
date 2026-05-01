@@ -1,0 +1,184 @@
+============================================================
+  COMPTE RENDU DE SESSION — CloudSimSDN
+  Date : 01/03/2026
+============================================================
+
+OBJECTIF GENERAL
+----------------
+Amélioration du simulateur CloudSimSDN pour :
+  1. Priorisation des workloads (Priority Scheduling)
+  2. Correction et enrichissement des logs de sortie
+  3. Correction des FileNotFoundException au lancement
+  4. Automatisation des expériences multi-politiques
+  5. Visualisation scientifique des résultats (publication Q1/Q2)
+
+
+============================================================
+A. PRIORISATION DES WORKLOADS
+============================================================
+
+Fichiers modifiés :
+  - Workload.java         : ajout du champ `priority` (getter/setter)
+  - WorkloadParser.java   : lecture colonne 10 du CSV (priorité)
+  - Request.java          : propagation du champ `priority`
+  - SDNBroker.java        : stockage priorité dans RequestMetrics,
+                            calcul corrigé de Dqueue,
+                            log KPI enrichi (Dprop, Dtrans, Dproc_VM,
+                            Dproc_sw, Dqueue, priority)
+  - PriorityWorkloadScheduler.java : tri des workloads par priorité décroissante
+
+Format CSV workload (10 colonnes) :
+  submitTime, fromVM, toVM, flowId, cloudletLen, pktSize,
+  startTime, endTime, linkBW, [priority]
+  (colonne 10 optionnelle, défaut = 0)
+
+KPI log produit :
+  [KPI] ReqID=X | Priority=N | Le2e=Xs | Dprop=Xs |
+        Dtrans=Xs | Dproc_VM=Xs | Dproc_sw=Xs | Dqueue=Xs
+
+
+============================================================
+B. CORRECTIONS DES LOGS DE SORTIE
+============================================================
+
+B1. detailed_energy.csv
+  - AVANT : pas de hostId, RAM toujours 0
+  - APRES :
+      PowerUtilizationMonitor.java : ajout entityId (hostId) dans CSV
+      LogManager.java              : header corrigé (doublon supprimé)
+      Format : time;hostId;cpu(%);ram(%);bw(%);energy(Wh)
+
+B2. RAM = 0 corrigé
+  - Cause : monitoringUsedRamPerUnit remis à 0 dans increaseUsedRam()
+            avant lecture par LogMonitor
+  - Fix : utiliser getRamProvisioner().getUsedRam()/getRam()
+    dans LogMonitor.monitorEnergyConsumption()
+    et   SDNHost.updateEnergyConsumption()
+
+
+============================================================
+C. CORRECTION DES FILENOT FOUND EXCEPTIONS
+============================================================
+
+Contexte : simulation lancée depuis cloudsimsdn090525\ (dossier parent)
+           au lieu de cloudsimsdn090525\cloudsimsdn\
+
+Fichiers modifiés :
+  - Configuration.java
+      detectWorkingDir() : cherche dataset-energy/ dans ./
+                           puis dans ./cloudsimsdn/ automatiquement
+      workingDirectory = detectWorkingDir();
+
+  - SimpleExampleSelectLinkBandwidth.java (main)
+      Préfixe workingDirectory sur physicalTopologyFile et deploymentFile
+      (PAS sur workloads : WorkloadParser.openFile() le fait déjà)
+
+  - WorkloadParser.java
+      result_file = workingDirectory + getResultFileName(this.file)
+
+  - .vscode/launch.json créé
+      "cwd": "${workspaceFolder}/cloudsimsdn"
+
+
+============================================================
+D. AUTOMATISATION DES EXPERIENCES (RUNNER)
+============================================================
+
+D1. SimpleExampleSelectLinkBandwidth.java — args refactorisés
+  Nouvelle signature :
+    java ... SimpleExampleSelectLinkBandwidth
+            <vmAlloc>          (LFF | MFF | FCFS | RR | Spread | ...)
+            <linkPolicy>       (DynLatBw | First | BwAlloc)
+            <workloadPolicy>   (Priority | SJF | RoundRobin | NoOp)
+            [experimentName]   (auto: experiment_LFF_DynLatBw_Priority)
+
+  Switch VM découplé du switch LinkPolicy
+  Workload scheduler paramétrable via args[2]
+
+D2. run_experiments.ps1
+  Lance toutes les combinaisons vmAlloc x linkPolicy x workloadPolicy
+  Commande :
+    powershell -ExecutionPolicy Bypass -File .\run_experiments.ps1 -DryRun
+    powershell -ExecutionPolicy Bypass -File .\run_experiments.ps1
+  Sorties : un dossier experiment_XXX_YYY_ZZZ/ par combinaison
+            + experiments_run_summary.csv
+
+D3. Python-V2/consolidated_report.py
+  Lit tous les dossiers experiment_*/
+  Génère dans figures_consolidated/ :
+    fig1_energy_comparison.pdf
+    fig2_latency_comparison.pdf
+    fig3_utilization_comparison.pdf
+    fig4_sla_violations.pdf
+    consolidated_summary.csv
+
+
+============================================================
+E. VISUALISATION SCIENTIFIQUE (PYTHON)
+============================================================
+
+Problème initial : graphes flous/pixelisés quand agrandis
+Cause : sauvegarde en .png 72 DPI (défaut matplotlib)
+
+Solution :
+  - Format vectoriel .pdf (jamais flou — requis IEEE/Elsevier)
+  - .png 600 DPI en backup (slides/Word)
+  - Style IEEE : Times New Roman 12pt, grille, tight_layout
+
+Fichiers Python :
+  Python-V2/Analyse.py          : comparaison First-Link vs BLA
+                                  + CDF des délais
+  Python-V2/plot_results.py     : figures depuis experiment1/
+  Python-V2/consolidated_report.py : rapport multi-expériences
+
+Commande type :
+  cd Python-V2
+  python Analyse.py
+  python consolidated_report.py
+
+
+============================================================
+F. RESULTATS SIMULATION LFF (premiers tests)
+============================================================
+
+Workloads        : 44/44 complets
+Energie totale   : 8.607 Wh (4 hosts equilibres : ~2.15 Wh chacun)
+Latence moyenne  : 23.774 s
+Latence max      : 64.800 s
+Dqueue moyen     : ~15 s
+SLA compliance   : 0% (seuil TIME_OUT=10s trop faible vs workloads 40-42s)
+
+Logs CSV generes (16 fichiers) :
+  host_energy.csv, detailed_energy.csv, host_utilization.csv,
+  path_latency.csv, path_latency_final.csv, link_utilization_up/down.csv,
+  qos_violations.csv, vm_utilization.csv, packet_delays.csv, etc.
+
+Observations :
+  - RAM affichee a 20% au niveau host (fix getRamProvisioner OK)
+  - Switch energy = 0 (modele energetique switch non configure)
+  - Dproc_sw = 0 (LinkSelectionPolicyDynamicLatencyBw ne calcule pas le delai switch)
+  - Priority = 0 pour tous (colonne 10 absente du CSV actuel)
+
+
+============================================================
+G. POINTS A FAIRE (prochaines etapes)
+============================================================
+
+  1. Corriger seuil SLA : TIME_OUT dans Configuration.java
+     (ex: 60 ou 120 s selon la taille des workloads)
+
+  2. Ajouter colonne priority dans le CSV workload
+     (dataset-energy/2energy-workload120-DynLatTst-.csv)
+
+  3. Comparer LFF vs MFF vs FCFS via run_experiments.ps1
+
+  4. Supprimer les logs de debug verbeux (System.out.println)
+     pour reduire le bruit dans la console
+
+  5. Configurer le modele energetique des switches
+
+  6. Valider les KPI logs (Le2e decompose) pour l'article
+
+============================================================
+  Fin du compte rendu
+============================================================

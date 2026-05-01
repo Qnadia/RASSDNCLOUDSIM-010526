@@ -1,0 +1,194 @@
+{
+    "nodes": [
+        {
+            "ram": 16384,
+            "pes": 16,
+            "name": "h_0",
+            "bw": 1000000000,
+            "mips": 8000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 16384,
+            "pes": 16,
+            "name": "h_1",
+            "bw": 1000000000,
+            "mips": 8000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 16384,
+            "pes": 16,
+            "name": "h_2",
+            "bw": 1000000000,
+            "mips": 8000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 16384,
+            "pes": 16,
+            "name": "h_3",
+            "bw": 1000000000,
+            "mips": 8000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "iops": 1000000000,
+            "name": "c0",
+            "bw": 600000000,
+            "type": "core"
+        },
+        {
+            "iops": 1000000000,
+            "name": "c1",
+            "bw": 600000000,
+            "type": "core"
+        },
+        {
+            "iops": 1000000000,
+            "name": "e0",
+            "bw": 300000000,
+            "type": "edge"
+        },
+        {
+            "iops": 1000000000,
+            "name": "e1",
+            "bw": 300000000,
+            "type": "edge"
+        }
+    ],
+    "links": [
+        {
+            "source": "h_0",
+            "destination": "e0",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e0",
+            "destination": "h_0",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "h_2",
+            "destination": "e0",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e0",
+            "destination": "h_2",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "h_1",
+            "destination": "e1",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e1",
+            "destination": "h_1",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "h_3",
+            "destination": "e1",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e1",
+            "destination": "h_3",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e0",
+            "destination": "c1",
+            "upBW": 50000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "c1",
+            "destination": "e0",
+            "upBW": 50000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e1",
+            "destination": "c1",
+            "upBW": 50000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "c1",
+            "destination": "e1",
+            "upBW": 50000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e0",
+            "destination": "c0",
+            "upBW": 800000000,
+            "latency": 0.01,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "c0",
+            "destination": "e0",
+            "upBW": 800000000,
+            "latency": 0.01,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "e1",
+            "destination": "c0",
+            "upBW": 800000000,
+            "latency": 0.01,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "c0",
+            "destination": "e1",
+            "upBW": 800000000,
+            "latency": 0.01,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        }
+    ]
+}

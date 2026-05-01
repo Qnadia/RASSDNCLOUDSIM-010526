@@ -1,0 +1,15 @@
+{
+  "nodes": [
+    {"ram": 10240, "pes": 16, "name": "h_0_0", "bw": 1000000000, "mips": 4000, "type": "host", "storage": 10000000}, 
+    {"ram": 10240, "pes": 16, "name": "h_0_1", "bw": 1000000000, "mips": 4000, "type": "host", "storage": 10000000}, 
+    {"iops": 1000000000, "name": "c", "bw": 1000000000, "type": "core"},
+    {"iops": 1000000000, "name": "e0", "bw": 1000000000, "type": "edge"} 
+  ],
+  "links": [
+    {"source": "c", "destination": "e0", "upBW": 1000000000, "latency": 0.1}, 
+    {"source": "c", "destination": "e0", "upBW": 500000000, "latency": 0.2}, 
+    {"source": "e0", "destination": "h_0_0", "upBW": 2000000000, "latency": 0.05},
+    {"source": "e0", "destination": "h_0_1", "upBW": 1000000000, "latency": 0.1}
+     
+  ]
+}

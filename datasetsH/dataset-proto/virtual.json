@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "name": "vm_eco",
+      "type": "vm",
+      "pes": 1,
+      "mips": 1000,
+      "ram": 512,
+      "size": 1000,
+      "bw": 1000000,
+      "host": "h_eco"
+    },
+    {
+      "name": "vm_perf",
+      "type": "vm",
+      "pes": 1,
+      "mips": 4000,
+      "ram": 512,
+      "size": 1000,
+      "bw": 1000000,
+      "host": "h_perf"
+    }
+  ],
+  "links": [
+    {
+      "name": "flow1",
+      "source": "vm_eco",
+      "destination": "vm_perf",
+      "bandwidth": 1000000,
+      "latency": 0.01
+    }
+  ]
+}

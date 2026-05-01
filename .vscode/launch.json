@@ -1,0 +1,74 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "LWFF | First | Priority | large (sc.6)",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "First", "Priority", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "LWFF | BwAllocN | SJF | large (sc.7)",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "BwAllocN", "SJF", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "LWFF | BwAllocN | FCFS | large (sc.8)",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "BwAllocN", "FCFS", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "LWFF | First | SJF | large (sc.9)",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "First", "SJF", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "LWFF | First | FCFS | large (sc.10)",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "First", "FCFS", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "LWFF | BwAllocN | PSO | large (sc.11) ⚠️ lent",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "BwAllocN", "PSO", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "LWFF | First | PSO | large (sc.12) ⚠️ lent",
+            "request": "launch",
+            "mainClass": "org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth",
+            "projectName": "cloudsimsdn",
+            "args": ["LWFF", "First", "PSO", "dataset-large"],
+            "javaExec": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java"
+        },
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        }
+    ]
+}

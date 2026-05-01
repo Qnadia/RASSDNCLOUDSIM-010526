@@ -1,0 +1,47 @@
+# IntelliJ IDEA
+*.iml
+.idea/
+
+# VS Code
+.vscode/
+
+# Java / Maven
+*.class
+*.out
+target/
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# JVM crash logs
+hs_err_pid*
+
+# Logs
+logs/
+*.log
+
+# Experiment outputs
+results/*
+!results/2026-05-01/
+
+**/consolidated*.csv
+
+
+
+# Simulation result files
+*.csv
+!results/**/*.csv
+
+# Archives
+*.zip
+
+
+# Exclure tous les fichiers consolidated et GLOBAL_MASTER
+**/GLOBAL_MASTER_*.csv
+**/consolidated_*.csv
+**/*link_utilization*.csv
+
+# Include today's results but explicitly ignore ALL massive CSV files inside
+!results/2026-05-01/

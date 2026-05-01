@@ -1,0 +1,19 @@
+vm_policy;link_policy;wf_policy;# units: hostId; total_energy(Wh)
+LFF;BLA;Priority;;24.8962
+LFF;BLA;PSO;;23.5606
+LFF;BLA;SJF;;24.8962
+LFF;First;Priority;;25.7511
+LFF;First;PSO;;24.4155
+LFF;First;SJF;;25.7511
+LWFF;BLA;Priority;;24.3486
+LWFF;BLA;PSO;;23.5606
+LWFF;BLA;SJF;;24.3486
+LWFF;First;Priority;;25.7511
+LWFF;First;PSO;;24.4155
+LWFF;First;SJF;;25.7511
+MFF;BLA;Priority;;2.7689
+MFF;BLA;PSO;;2.3494
+MFF;BLA;SJF;;2.7689
+MFF;First;Priority;;2.7689
+MFF;First;PSO;;2.3494
+MFF;First;SJF;;2.7689

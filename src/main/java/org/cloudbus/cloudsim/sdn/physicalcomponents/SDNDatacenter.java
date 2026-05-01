@@ -1,0 +1,2627 @@
+/*
+ * Title:        CloudSimSDN
+ * Description:  SDN extension for CloudSim
+ * Licence:      GPL - http://www.gnu.org/copyleft/gpl.html
+ *
+ * Copyright (c) 2015, The University of Melbourne, Australia
+ */
+package org.cloudbus.cloudsim.sdn.physicalcomponents;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import org.cloudbus.cloudsim.Cloudlet;
+import org.cloudbus.cloudsim.CloudletScheduler;
+import org.cloudbus.cloudsim.Datacenter;
+import org.cloudbus.cloudsim.DatacenterCharacteristics;
+import org.cloudbus.cloudsim.Host;
+import org.cloudbus.cloudsim.Log;
+import org.cloudbus.cloudsim.Storage;
+import org.cloudbus.cloudsim.UtilizationModel;
+import org.cloudbus.cloudsim.UtilizationModelFull;
+import org.cloudbus.cloudsim.Vm;
+import org.cloudbus.cloudsim.VmAllocationPolicy;
+import org.cloudbus.cloudsim.core.CloudSim;
+import org.cloudbus.cloudsim.core.CloudSimTags;
+import org.cloudbus.cloudsim.core.SimEvent;
+import org.cloudbus.cloudsim.sdn.CloudSimTagsSDN;
+import org.cloudbus.cloudsim.sdn.CloudletSchedulerMonitor;
+import org.cloudbus.cloudsim.sdn.CloudletSchedulerTimeSharedMonitor;
+import org.cloudbus.cloudsim.sdn.Packet;
+import org.cloudbus.cloudsim.sdn.SDNBroker;
+import org.cloudbus.cloudsim.sdn.example.LogManager;
+import org.cloudbus.cloudsim.sdn.nos.NetworkOperatingSystem;
+import org.cloudbus.cloudsim.sdn.parsers.VirtualTopologyParser;
+import org.cloudbus.cloudsim.sdn.parsers.WorkloadParser;
+import org.cloudbus.cloudsim.sdn.policies.selectlink.LinkSelectionPolicy;
+import org.cloudbus.cloudsim.sdn.policies.selectlink.LinkSelectionPolicyDynamicLatencyBw;
+import org.cloudbus.cloudsim.sdn.policies.vmallocation.VmAllocationInGroup;
+import org.cloudbus.cloudsim.sdn.policies.vmallocation.VmAllocationPolicyPriorityFirst;
+import org.cloudbus.cloudsim.sdn.policies.vmallocation.VmGroup;
+import org.cloudbus.cloudsim.sdn.virtualcomponents.FlowConfig;
+import org.cloudbus.cloudsim.sdn.virtualcomponents.SDNVm;
+import org.cloudbus.cloudsim.sdn.workload.Activity;
+import org.cloudbus.cloudsim.sdn.workload.Processing;
+import org.cloudbus.cloudsim.sdn.workload.Request;
+import org.cloudbus.cloudsim.sdn.workload.Transmission;
+import org.cloudbus.cloudsim.sdn.workload.Workload;
+
+/**
+ * Extended class of Datacenter that supports processing SDN-specific events.
+ * In addtion to the default Datacenter, it processes Request submission to VM,
+ * and application deployment request.
+ * 
+ * @author Jungmin Son
+ * @author Rodrigo N. Calheiros
+ * @since CloudSimSDN 1.0
+ */
+public class SDNDatacenter extends Datacenter {
+	private NetworkOperatingSystem nos;
+	private HashMap<Integer, Request> requestsTable = new HashMap<Integer, Request>();
+	private static HashMap<Integer, Datacenter> globalVmDatacenterMap = new HashMap<Integer, Datacenter>();
+
+	private static boolean isMigrateEnabled = false;
+
+	// For results
+	public static int migrationCompleted = 0;
+	public static int migrationAttempted = 0;
+
+	/* MAJ Nadia */
+	private Map<Integer, Node> vmIdToNode = new HashMap<>();
+	public static Map<String, Vm> vmNameMap = new HashMap<>();
+	private Map<String, Integer> vmNameIdMap;
+	private Map<String, Integer> flowNameIdMap;
+	private Map<Integer, Long> flowIdToBandwidthMap;
+	private int appId;
+
+	// Mapping des workload parsers par parserId
+	private Map<Integer, WorkloadParser> w1 = new HashMap<>();
+
+	public Map<String, Integer> getVmNameIdMap() {
+		return this.vmNameIdMap;
+	}
+
+	public Map<String, Integer> getFlowNameIdMap() {
+		return this.flowNameIdMap;
+	}
+
+	public Map<Integer, Long> getFlowIdToBandwidthMap() {
+		return this.flowIdToBandwidthMap;
+	}
+
+	private WorkloadParser workloadParser; // Déclarer l'attribut
+	private int failedRequestsCount = 0;
+	private Map<String, Integer> failedRequests = new HashMap<String, Integer>();
+
+	// FIX IT24: Throttle repeated fallback error logs (only log once per dstVmId)
+	private final Set<Integer> loggedFallbackVmIds = new HashSet<>();
+
+	public SDNDatacenter(String name, DatacenterCharacteristics characteristics, VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList, double schedulingInterval, NetworkOperatingSystem nos,
+			WorkloadParser workloadParser) throws Exception {
+		super(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval);
+		this.nos = nos;
+		this.workloadParser = workloadParser; // Initialiser l'attribut
+		this.w1 = new HashMap<>();
+		this.w1.put(0, workloadParser);
+		this.appId = appId; // ✅ Initialisation ici !
+		if (vmAllocationPolicy instanceof VmAllocationPolicyPriorityFirst) {
+			((VmAllocationPolicyPriorityFirst) vmAllocationPolicy).setTopology(nos.getPhysicalTopology());
+		}
+	}
+
+	/* Fin MAJ */
+	// Constructeur sans WorkloadParser
+	public SDNDatacenter(
+			String name,
+			DatacenterCharacteristics characteristics,
+			VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList,
+			double schedulingInterval,
+			NetworkOperatingSystem nos) throws Exception {
+		this(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval, nos, null, 0, null);
+	}
+
+	// Constructeur principal
+	public SDNDatacenter(String name,
+			DatacenterCharacteristics characteristics,
+			VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList,
+			double schedulingInterval,
+			NetworkOperatingSystem nos,
+			WorkloadParser workloadParser,
+			int appId,
+			Map<Integer, WorkloadParser> workloadParsers) throws Exception {
+		super(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval);
+		this.nos = nos;
+		this.workloadParser = workloadParser;
+		this.w1 = new HashMap<>();
+		if (workloadParsers != null) {
+			this.w1.putAll(workloadParsers);
+		} else {
+			this.w1.put(appId, workloadParser);
+		}
+		this.appId = appId;
+
+		if (vmAllocationPolicy instanceof VmAllocationPolicyPriorityFirst) {
+			((VmAllocationPolicyPriorityFirst) vmAllocationPolicy).setTopology(nos.getPhysicalTopology());
+		}
+	}
+
+	// Constructeur secondaire sans Map<Integer, WorkloadParser>
+	public SDNDatacenter(String name,
+			DatacenterCharacteristics characteristics,
+			VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList,
+			double schedulingInterval,
+			NetworkOperatingSystem nos,
+			WorkloadParser workloadParser,
+			int appId) throws Exception {
+		super(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval);
+		this.nos = nos;
+		this.workloadParser = workloadParser;
+		this.appId = appId;
+
+		// Properly register the workload parser
+		if (workloadParser != null) {
+			this.w1.put(appId, workloadParser);
+			// Also ensure the parser knows its group ID
+			// workloadParser.setGroupId(appId);
+		}
+
+		if (vmAllocationPolicy instanceof VmAllocationPolicyPriorityFirst) {
+			((VmAllocationPolicyPriorityFirst) vmAllocationPolicy).setTopology(nos.getPhysicalTopology());
+		}
+	}
+
+	// Constructeur secondaire avec un paramètre supplémentaire
+	public SDNDatacenter(String name,
+			DatacenterCharacteristics characteristics,
+			VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList,
+			double schedulingInterval,
+			NetworkOperatingSystem nos,
+			WorkloadParser workloadParser,
+			int appId,
+			Map<Integer, WorkloadParser> workloadParsers,
+			boolean enableMigration) throws Exception {
+		this(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval, nos, workloadParser, appId,
+				workloadParsers);
+		this.isMigrateEnabled = enableMigration;
+	}
+
+	public static Datacenter findDatacenterGlobal(int vmId) {
+		// Find a data center where the VM is placed
+		return globalVmDatacenterMap.get(vmId);
+	}
+
+	public void addVm(Vm vm) {
+		getVmList().add(vm);
+		if (vm.isBeingInstantiated())
+			vm.setBeingInstantiated(false);
+		vm.updateVmProcessing(CloudSim.clock(),
+				getVmAllocationPolicy().getHost(vm).getVmScheduler().getAllocatedMipsForVm(vm));
+	}
+
+	@Override
+	protected void processVmCreate(SimEvent ev, boolean ack) {
+		processVmCreateEvent((SDNVm) ev.getData(), ack);
+		if (ack) {
+			Vm vm = (Vm) ev.getData();
+			send(nos.getId(), 0/* CloudSim.getMinTimeBetweenEvents() */, CloudSimTags.VM_CREATE_ACK, vm);
+		}
+	}
+
+	protected boolean processVmCreateEvent(SDNVm vm, boolean ack) {
+		boolean result = getVmAllocationPolicy().allocateHostForVm(vm);
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = vm.getId();
+
+			if (result) {
+				data[2] = CloudSimTags.TRUE;
+			} else {
+				data[2] = CloudSimTags.FALSE;
+			}
+			send(vm.getUserId(), CloudSim.getMinTimeBetweenEvents(), CloudSimTags.VM_CREATE_ACK, data);
+		}
+
+		if (result) {
+			globalVmDatacenterMap.put(vm.getId(), this);
+
+			getVmList().add(vm);
+
+			if (vm.isBeingInstantiated()) {
+				vm.setBeingInstantiated(false);
+			}
+
+			vm.updateVmProcessing(CloudSim.clock(), getVmAllocationPolicy().getHost(vm).getVmScheduler()
+					.getAllocatedMipsForVm(vm));
+		}
+
+		return result;
+	}
+
+	protected boolean processVmCreateDynamic(SimEvent ev) {
+		Object[] data = (Object[]) ev.getData();
+		SDNVm vm = (SDNVm) data[0];
+		NetworkOperatingSystem callbackNOS = (NetworkOperatingSystem) data[1];
+
+		boolean result = processVmCreateEvent(vm, true);
+		data[0] = vm;
+		data[1] = result;
+		send(callbackNOS.getId(), 0/* CloudSim.getMinTimeBetweenEvents() */, CloudSimTagsSDN.SDN_VM_CREATE_DYNAMIC_ACK,
+				data);
+
+		return result;
+	}
+
+	protected void processVmCreateInGroup(SimEvent ev, boolean ack) {
+		@SuppressWarnings("unchecked")
+		List<Object> params = (List<Object>) ev.getData();
+
+		Vm vm = (Vm) params.get(0);
+		VmGroup vmGroup = (VmGroup) params.get(1);
+
+		boolean result = ((VmAllocationInGroup) getVmAllocationPolicy()).allocateHostForVmInGroup(vm, vmGroup);
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = vm.getId();
+
+			if (result) {
+				data[2] = CloudSimTags.TRUE;
+			} else {
+				data[2] = CloudSimTags.FALSE;
+			}
+			send(vm.getUserId(), 0, CloudSimTags.VM_CREATE_ACK, data);
+			send(nos.getId(), 0, CloudSimTags.VM_CREATE_ACK, vm);
+		}
+
+		if (result) {
+			getVmList().add(vm);
+
+			if (vm.isBeingInstantiated()) {
+				vm.setBeingInstantiated(false);
+			}
+
+			vm.updateVmProcessing(CloudSim.clock(), getVmAllocationPolicy().getHost(vm).getVmScheduler()
+					.getAllocatedMipsForVm(vm));
+		}
+	}
+
+	@Override
+	protected void processVmMigrate(SimEvent ev, boolean ack) {
+		migrationCompleted++;
+
+		// Change network routing.
+		@SuppressWarnings("unchecked")
+		Map<String, Object> migrate = (HashMap<String, Object>) ev.getData();
+
+		Vm vm = (Vm) migrate.get("vm");
+		Host newHost = (Host) migrate.get("host");
+		Host oldHost = vm.getHost();
+
+		// Migrate the VM to another host.
+		super.processVmMigrate(ev, ack);
+
+		nos.processVmMigrate(vm, (SDNHost) oldHost, (SDNHost) newHost);
+	}
+
+	/* MAJ Nadia */
+	@Override
+	public void processEvent(SimEvent ev) {
+		System.out.println(getName() + " received event tag=" + ev.getTag());
+		switch (ev.getTag()) {
+			case CloudSimTags.RESOURCE_CHARACTERISTICS:
+				super.processEvent(ev);
+				break;
+			default:
+				super.processEvent(ev);
+				processOtherEvent(ev);
+		}
+	}
+
+	@Override
+	public void processOtherEvent(SimEvent ev) {
+		System.out.println("Processing event: " + ev.getTag() + " for entity: " + ev.getDestination());
+		switch (ev.getTag()) {
+			case CloudSimTagsSDN.REQUEST_SUBMIT:
+				System.out.print("case REQUEST_SUBMIT ");
+				processRequestSubmit((Request) ev.getData());
+				break;
+			case CloudSimTagsSDN.SDN_PACKET_COMPLETE:
+				processPacketCompleted((Packet) ev.getData());
+				break;
+			case CloudSimTagsSDN.SDN_PACKET_FAILED:
+				processPacketFailed((Packet) ev.getData());
+				break;
+			case CloudSimTagsSDN.SDN_VM_CREATE_IN_GROUP:
+				processVmCreateInGroup(ev, false);
+				break;
+			case CloudSimTagsSDN.SDN_VM_CREATE_IN_GROUP_ACK:
+				processVmCreateInGroup(ev, true);
+				break;
+			case CloudSimTagsSDN.SDN_VM_CREATE_DYNAMIC:
+				processVmCreateDynamic(ev);
+				break;
+			/* MAJ nADIA */
+			case CloudSimTagsSDN.APPLICATION_SUBMIT:
+				System.out.println("APPLICATION_SUBMIT event");
+				processApplication(ev.getSource(), (String) ev.getData());
+				break;
+
+			case CloudSimTagsSDN.WORKLOAD_SUBMIT:
+				processWorkloadSubmit((Workload) ev.getData());
+				break;
+
+			case CloudSimTagsSDN.WORKLOAD_BATCH_SUBMIT:
+				processWorkloadBatchSubmit(ev);
+				break;
+
+			case CloudSimTagsSDN.WORKLOAD_COMPLETED:
+				Object dataa = ev.getData();
+				if (dataa == null) {
+					System.err.println("❌ WORKLOAD_COMPLETED reçu sans Request associée !");
+					break;
+				}
+				Request completed = (Request) dataa;
+				System.out.println("✅ WORKLOAD_COMPLETED for Request ID: " + completed.getRequestId()
+						+ " at time " + CloudSim.clock());
+				send(completed.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_COMPLETED, completed);
+				break;
+
+			case CloudSimTags.CLOUDLET_SUBMIT:
+				Object data = ev.getData();
+
+				if (data instanceof Object[]) {
+					Object[] obj = (Object[]) data;
+					Cloudlet cl = (Cloudlet) obj[0];
+					boolean ack = (boolean) obj[1];
+
+					processCloudletSubmit(ev, ack);
+				} else {
+					Log.printLine(getName() + ": Unknown data type in CLOUDLET_SUBMIT event");
+				}
+				break;
+			case CloudSimTags.VM_DATACENTER_EVENT:
+				System.out.println("⚡️ VM_DATACENTER_EVENT triggered at time: " + CloudSim.clock());
+
+				updateCloudletProcessing();
+				checkCloudletCompletion();
+				break;
+			case CloudSimTagsSDN.VM_UPDATE:
+				System.out.println("🚀 [SDNDatacenter] VM_UPDATE event at: " + CloudSim.clock());
+				updateCloudletProcessing();
+				checkCloudletCompletion();
+				break;
+
+			case CloudSimTagsSDN.REQUEST_COMPLETED:
+				Request reqComp = (Request) ev.getData();
+				System.out.println("Processing event: REQUEST_COMPLETED for Request ID: " + reqComp.getRequestId());
+				// The Transmission activity was already removed in
+				// processNextActivityTransmission
+				// or the Processing activity in checkCloudletCompletion.
+				// Just start the next one.
+				processNextActivity(reqComp);
+				break;
+			// case CloudSimTagsSDN.TRANSMISSION_ACTIVITY:
+			default:
+				System.out.println("Unknown event recevied by SdnDatacenter. Tag:" + ev.getTag());
+		}
+	}
+
+	/* MAJ Nadia */
+	private VirtualTopologyParser virtualTopologyParser;
+
+	// Dans le constructeur ou une méthode d'initialisation :
+	public void setVirtualTopologyParser(VirtualTopologyParser parser) {
+		this.virtualTopologyParser = parser;
+	}
+
+	public VirtualTopologyParser getVirtualTopologyParser() {
+		return this.virtualTopologyParser;
+	}
+
+	private Vm getVmById(Host host, int vmId) {
+		for (Vm vm : host.getVmList()) {
+			if (vm.getId() == vmId) {
+				return vm;
+			}
+		}
+		return null; // Retourne null si la VM n'est pas trouvée
+	}
+
+	// private void processWorkloadSubmit(SimEvent ev) {
+	// Workload wl = (Workload) ev.getData();
+	// Request req = wl.request;
+
+	// // Debug initial
+	// logDebug("Processing Workload for Request ID: " + req.getRequestId());
+	// logDebug("- Submit VM ID: " + wl.submitVmId);
+	// logDebug("- Cloudlet Length: " + req.getLastProcessingCloudletLen());
+
+	// // Initialisation des paramètres
+	// int vmId = req.getLastProcessingVmId() != -1 ? req.getLastProcessingVmId() :
+	// wl.submitVmId;
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// req.setLastProcessingVmId(vmId);
+	// req.setLastProcessingCloudletLen(cloudletLen);
+
+	// // Récupération de l'hôte source
+	// SDNHost host = (SDNHost) getVmAllocationPolicy().getHost(vmId,
+	// req.getUserId());
+	// if (host == null) {
+	// logError("Host not found for VM ID " + vmId);
+	// return;
+	// }
+
+	// // Calcul du délai de traitement
+	// double processingDelay = host.calculateProcessingDelay(cloudletLen, vmId);
+	// Node src = nos.getNodeById(host.getId());
+	// Node dst = src; // Par défaut, même hôte
+
+	// // Gestion de la transmission réseau
+	// Packet pkt = req.getLastTransmission() != null ?
+	// req.getLastTransmission().getPacket() : null;
+	// double propagationDelay = 0;
+	// double transmissionDelay = 0;
+
+	// if (pkt != null) {
+	// req.setPacketSizeBytes(pkt.getSize());
+	// long packetBits = pkt.getSize() * 8L;
+
+	// // Récupération de la VM destination
+	// Vm dstVm = getVmAllocationPolicy().getHost(pkt.getDestination(),
+	// req.getUserId())
+	// .getVm(pkt.getDestination(), req.getUserId());
+
+	// if (dstVm != null) {
+	// SDNHost dstHost = (SDNHost) dstVm.getHost();
+	// dst = nos.getNodeById(dstHost.getId());
+
+	// // Debug crucial
+	// Log.printLine(String.format("Routing: %s(%s) → %s(%s)",
+	// src.getName(), srcHost.getName(),
+	// dst.getName(), dstHost.getName()));
+
+	// if (src.equals(dst)) {
+	// Log.printLine("Local traffic - skipping network delays");
+	// } else {
+	// updateRequestMetadata(req, pkt, (SDNVm)dstVm);
+
+	// LinkSelectionPolicyDynamicLatencyBw policy =
+	// new LinkSelectionPolicyDynamicLatencyBw(nos.getNetworkTopology());
+	// List<Link> path = policy.findBestPath(src, dst, pkt);
+
+	// if (path == null || path.isEmpty()) {
+	// Log.printLine("WARNING: Using default path with direct link");
+	// // Fallback: utiliser le lien direct s'il existe
+	// Link directLink = nos.getNetworkTopology().getDirectLink(src, dst);
+	// if (directLink != null) {
+	// path = Collections.singletonList(directLink);
+	// } else {
+	// Log.printLine("ERROR: No path available!");
+	// return;
+	// }
+	// }
+
+	// // Calcul des délais avec vérification des unités
+	// Node current = src;
+	// for (Link link : path) {
+	// double bw = link.getBw(current); // Bande passante directionnelle
+	// double propDelay = link.calculateDynamicPropagationDelay() / 1000; // ms → s
+	// double txDelay = (pkt.getSize() * 8.0) / (bw * link.getEfficiency());
+
+	// propagationDelay += propDelay;
+	// transmissionDelay += txDelay;
+	// current = link.getOtherNode(current);
+
+	// Log.printLine(String.format(" Link %s→%s: BW=%.1fMbps, Prop=%.6fs, Tx=%.6fs",
+	// link.getHighOrder().getName(),
+	// link.getLowOrder().getName(),
+	// bw/1e6, propDelay, txDelay));
+	// }
+	// }
+
+	// } else {
+	// logWarning("No transmission packet - CPU-only workload");
+	// }
+
+	// // Mise à jour des délais dans la requête
+	// updateRequestDelays(req, cloudletLen, processingDelay, propagationDelay,
+	// transmissionDelay);
+
+	// // Envoi de l'événement de complétion
+	// scheduleWorkloadCompletion(req, processingDelay + propagationDelay +
+	// transmissionDelay);
+	// }
+
+	@SuppressWarnings("unchecked")
+	private void processWorkloadBatchSubmit(SimEvent ev) {
+		java.util.List<Workload> batch = (java.util.List<Workload>) ev.getData();
+		System.out.println("🔥 [Map-Reduce] Processing batch of " + batch.size() + " workloads in parallel at T=" + CloudSim.clock());
+		
+		// Map phase: pre-calculate paths for all workloads in parallel
+		batch.parallelStream().forEach(wl -> {
+			Request req = wl.request;
+			Packet pkt = req.getLastTransmission() != null ? req.getLastTransmission().getPacket() : null;
+			if (pkt != null) {
+				int processingVmId = wl.submitVmId;
+				SDNHost srcHost = (SDNHost) getVmAllocationPolicy().getHost(processingVmId, req.getUserId());
+				if (srcHost == null) return;
+				
+				int dstSdnId = pkt.getDestination();
+				int dstVmId = dstSdnId;
+				if (dstVmId < 0 || getVmAllocationPolicy().getHost(dstVmId, req.getUserId()) == null) {
+					dstVmId = processingVmId;
+				}
+				SDNHost dstHost = (SDNHost) getVmAllocationPolicy().getHost(dstVmId, req.getUserId());
+				if (dstHost == null) return;
+				
+				if (srcHost.getId() != dstHost.getId()) {
+					Node srcNode = nos.getNodeById(srcHost.getId());
+					Node dstNode = nos.getNodeById(dstHost.getId());
+					LinkSelectionPolicy policy = nos.getLinkSelectionPolicy();
+					if (policy != null && srcNode != null && dstNode != null) {
+						java.util.List<Link> precalculatedPath = policy.findBestPath(srcNode, dstNode, pkt);
+						req.setPrecalculatedPath(precalculatedPath);
+					}
+				}
+			}
+		});
+
+		// Reduce phase: execute side-effects sequentially
+		for (Workload wl : batch) {
+			processWorkloadSubmit(wl);
+		}
+	}
+
+	private void processWorkloadSubmit(Workload wl) {
+		System.out.println("################### processWorkloadSubmit ");
+		Request req = wl.request;
+
+		logDebug("Processing Workload for Request ID: " + req.getRequestId());
+		req.setSubmitTime(CloudSim.clock()); // Initialize submitTime
+		logDebug("- Submit VM ID: " + wl.submitVmId);
+		logDebug("- Cloudlet Length: " + req.getLastProcessingCloudletLen());
+
+		// Initialisation du cloudlet
+		long cloudletLen = req.getLastProcessingCloudletLen();
+		req.setLastProcessingCloudletLen(cloudletLen);
+
+		// Initialisation des IDs VM source/destination
+		Packet pkt = req.getLastTransmission() != null ? req.getLastTransmission().getPacket() : null;
+
+		// FIX IT23-B: Always use wl.submitVmId as the real application-level VM ID.
+		// pkt.getOrigin()/.getDestination() are SDN node IDs (flow/switch IDs like 38,
+		// 41)
+		// and must NOT be used for VM-level operations (host lookup, vmIdToDc).
+		int processingVmId = wl.submitVmId; // true VM ID — always correct
+		req.setLastProcessingVmId(processingVmId);
+
+		// SDN routing IDs — used only for network path computation
+		int srcSdnId, dstSdnId;
+		if (pkt != null) {
+			srcSdnId = pkt.getOrigin();
+			dstSdnId = pkt.getDestination();
+		} else {
+			srcSdnId = processingVmId;
+			dstSdnId = processingVmId;
+		}
+
+		// --- VM and Host resolution (always use processingVmId) ---
+		SDNHost srcHost = (SDNHost) getVmAllocationPolicy().getHost(processingVmId, req.getUserId());
+		if (srcHost == null) {
+			logError("Source host not found for VM ID " + processingVmId);
+			send(req.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_FAILED, wl);
+			return;
+		}
+
+		Vm srcVm = srcHost.getVm(processingVmId, req.getUserId());
+		if (srcVm == null) {
+			logError("Source VM not found for ID " + processingVmId);
+			send(req.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_FAILED, wl);
+			return;
+		}
+
+		// Destination: use SDN routing ID to find the destination host/VM
+		int dstVmId = dstSdnId;
+		if (dstVmId < 0) {
+			logError("Invalid dstVmId: " + dstVmId + " for request ID " + req.getRequestId());
+			send(req.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_FAILED, wl);
+			return;
+		}
+		if (getVmAllocationPolicy().getHost(dstVmId, req.getUserId()) == null) {
+			// Fallback: if SDN node ID is not a VM ID, use processingVmId as destination
+			// FIX IT24: Log only once per dstVmId to avoid 500KB+ spam in .err.log
+			if (loggedFallbackVmIds.add(dstVmId)) {
+				logError("No host for dstVmId=" + dstVmId
+						+ " (SDN node ID), falling back to processingVmId. [Subsequent occurrences suppressed]");
+			}
+			dstVmId = processingVmId;
+		}
+
+		SDNHost dstHost = (SDNHost) getVmAllocationPolicy().getHost(dstVmId, req.getUserId());
+		if (dstHost == null) {
+			logError("Destination host not found for VM ID " + dstVmId);
+			send(req.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_FAILED, wl);
+			return;
+		}
+
+		Vm dstVm = dstHost.getVm(dstVmId, req.getUserId());
+		if (dstVm == null) {
+			logError("Destination VM not found for ID " + dstVmId);
+			send(req.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_FAILED, wl);
+			return;
+		}
+
+		// Débogage des VMs et Hosts
+		logDebug("→ Source Host: " + srcHost.getName() + " (ID=" + srcHost.getId() + ")");
+		logDebug("→ Destination Host: " + dstHost.getName() + " (ID=" + dstHost.getId() + ")");
+		logDebug("→ Source VM: " + ((SDNVm) srcVm).getName() + " (ID=" + srcVm.getId() + ")");
+		logDebug("→ Destination VM: " + ((SDNVm) dstVm).getName() + " (ID=" + dstVm.getId() + ")");
+
+		req.setSourceVmName(((SDNVm) srcVm).getName());
+		req.setDestinationVmName(((SDNVm) dstVm).getName());
+
+		// Calcul du délai de traitement CPU (toujours basé sur la vraie VM source)
+		double processingDelay = srcHost.calculateProcessingDelay(cloudletLen, processingVmId);
+		req.setProcessingDelay(processingDelay); // Propagate to request
+		req.setSrcHostName(srcHost.getName());
+		req.setDstHostName(dstHost.getName());
+
+		logDebug("→ Destination VM: " + ((SDNVm) dstVm).getName() + " (ID=" + dstVm.getId() + ")");
+
+		// Préparation des nœuds SDN
+		Node srcNode = nos.getNodeById(srcHost.getId());
+		Node dstNode = nos.getNodeById(dstHost.getId());
+
+		double propagationDelay = 0;
+		double transmissionDelay = 0;
+		double minBw = Double.POSITIVE_INFINITY;
+		double avgPctUseMbps = 0;
+		double avgBwUsedMbps = 0;
+		StringBuilder pathId = new StringBuilder(srcNode.getName());
+
+		req.setLastProcessingCloudletLen(cloudletLen);
+		System.out.println("? [DEBUG] Setting req.lastProcessingCloudletLen = " + cloudletLen);
+
+		if (pkt != null) {
+			long bits = pkt.getSize() * 8L;
+			req.setPacketSizeBytes(pkt.getSize());
+			System.out.println("? [DEBUG] Setting req.packetSizeBytes = " + pkt.getSize());
+
+			// Mise à jour des métadonnées de requête
+			// FIX IT23-V3: Pass already resolved srcHost and srcVm
+			updateRequestMetadata(req, pkt, (SDNVm) srcVm, (SDNVm) dstVm, srcHost, dstHost);
+
+			if (srcHost.getId() == dstHost.getId()) {
+				logDebug("Local traffic between VMs on same host: " + srcHost.getName());
+				pathId.append("->(LOCAL)->").append(dstNode.getName());
+				minBw = 10000 * 1e6; // Large bandwidth for local
+			} else {
+				LinkSelectionPolicy policy = nos.getLinkSelectionPolicy();
+				if (policy == null) {
+					logError("🚨 LinkSelectionPolicy est null. Vérifie l'initialisation dans la topologie.");
+					return;
+				}
+				List<Link> path = req.getPrecalculatedPath();
+				if (path == null) {
+					path = policy.findBestPath(srcNode, dstNode, pkt);
+				}
+
+				if (path == null || path.isEmpty()) {
+					markRequestAsFailed(req, wl, "No path found in hierarchical topology");
+					return;
+				}
+
+				logDebug("Calculated path for request " + req.getRequestId() + ":");
+				Node current = srcNode;
+				double totalPctUsed = 0.0;
+				double totalBwUsed = 0.0;
+				int linkCount = 0;
+
+				List<org.cloudbus.cloudsim.sdn.workload.Transmission> hops = new ArrayList<>();
+				for (Link link : path) {
+					Node next = link.getOtherNode(current);
+					pathId.append("->").append(next.getName());
+
+					double bw = link.getBw(current);
+					double pDelay = link.calculateDynamicPropagationDelay();
+					double sLat = link.getLatency() / 1000.0;
+
+					propagationDelay += pDelay + sLat;
+
+					org.cloudbus.cloudsim.sdn.workload.Transmission hop = new org.cloudbus.cloudsim.sdn.workload.Transmission(
+							current.getAddress(), next.getAddress(), pkt.getSize(), pkt.getFlowId(), req);
+					hop.setStartTime(0);
+					hop.setFinishTime(pDelay + sLat);
+					hops.add(hop);
+
+					double pctUsed = link.getUtilizationPercent(current) * 100;
+					totalPctUsed += pctUsed;
+					totalBwUsed += (bw * (pctUsed / 100.0)) / 1e6;
+					linkCount++;
+
+					link.increaseProcessedBytes(current, pkt.getSize() * 8);
+
+					Log.printLine(String.format("  [Path] %s → %s (Prop=%.6fs, SwLat=%.6fs)",
+							current.getName(), next.getName(), pDelay, sLat));
+
+					minBw = Math.min(minBw, bw);
+					current = next;
+				}
+
+				// Final Transmission Delay based on bottleneck BW
+				transmissionDelay = bits / (minBw * 1.0);
+
+				// Add transmission delay to the last hop for correct summing in Broker
+				if (!hops.isEmpty()) {
+					org.cloudbus.cloudsim.sdn.workload.Transmission lastHop = hops.get(hops.size() - 1);
+					lastHop.setFinishTime(lastHop.getFinishTime() + transmissionDelay);
+				}
+
+				for (org.cloudbus.cloudsim.sdn.workload.Transmission hop : hops) {
+					req.addActivity(hop);
+				}
+
+				req.setTransmissionDelay(transmissionDelay);
+				req.setPropagationDelay(propagationDelay);
+
+				avgPctUseMbps = totalPctUsed / linkCount;
+				avgBwUsedMbps = totalBwUsed / linkCount;
+			}
+		} else {
+			logWarning("No transmission packet - CPU-only workload");
+		}
+
+		// Log vers path_latency_final.csv for all workloads (CPU or Network)
+		double networkLatency = propagationDelay + transmissionDelay;
+		double totalLatency = networkLatency + processingDelay;
+		String pathString = (pkt != null) ? pathId.toString() : srcNode.getName() + " (CPU-Only)";
+		double minBwVal = (pkt != null) ? minBw / 1e6 : 0;
+
+		// MAJ Nadia : Store context for deferred logging at completion
+		req.setPathString(pathString);
+		req.setMinBwVal(minBwVal);
+		req.setAvgBwUsedMbps(avgBwUsedMbps);
+		req.setAvgPctUseMbps(avgPctUseMbps);
+		req.setPropagationDelay(propagationDelay);
+		req.setTransmissionDelay(transmissionDelay);
+		req.setProcessingDelay(processingDelay); // This will be updated with actual time later
+
+		/*
+		 * LogManager.log("path_latency_final.csv", LogManager.formatData(
+		 * CloudSim.clock(),
+		 * srcNode.getName(),
+		 * dstNode.getName(),
+		 * pathString,
+		 * String.format(Locale.US, "%.4f", minBwVal),
+		 * String.format(Locale.US, "%.2f", avgBwUsedMbps),
+		 * String.format(Locale.US, "%.2f", avgPctUseMbps),
+		 * String.format(Locale.US, "%.4f", networkLatency * 1000),
+		 * String.format(Locale.US, "%.4f", processingDelay * 1000),
+		 * String.format(Locale.US, "%.4f", totalLatency * 1000),
+		 * "true"));
+		 */
+
+		// int groupId = req.getWorkloadParserId();
+		// WorkloadParser parser = this.workloadParser;
+
+		// if (parser == null) {
+		// logError("❌ Aucune instance de WorkloadParser trouvée pour le groupe ID=" +
+		// groupId);
+		// return;
+		// }
+
+		// System.out.println("→ workloadParser: " + parser );
+		System.out.println("→ cloudletId: " + req.getRequestId());
+		System.out.println("→ userId: " + req.getUserId());
+		System.out.println("→ vmId: " + dstVmId);
+		System.out.println("→ length: " + cloudletLen);
+
+		// 💾 Générer le Cloudlet via la méthode existante
+		Cloudlet cloudlet = generateCloudlet(
+				req.getRequestId(), // ID du Cloudlet (unique)
+				req.getUserId(), // ID du User
+				dstVmId, // ID de la VM de destination
+				(int) cloudletLen // Longueur du cloudlet
+		);
+
+		if (cloudlet == null) {
+			logError("❌ Cloudlet généré est null pour requestId=" + req.getRequestId());
+			return;
+		}
+
+		System.out.println("✅ Submitting cloudlet: " + cloudlet.getCloudletId() +
+				" to VM ID: " + cloudlet.getVmId() + " | Length: " + cloudlet.getCloudletLength());
+
+		if (dstVm.getCloudletScheduler() instanceof CloudletSchedulerTimeSharedMonitor) {
+			List<Double> mipsShare = dstVm.getHost().getVmScheduler().getAllocatedMipsForVm(dstVm);
+			if (mipsShare != null && !mipsShare.isEmpty()) {
+				dstVm.getCloudletScheduler().updateVmProcessing(CloudSim.clock(), mipsShare);
+			} else {
+				System.err.println("⚠️ mipsShare null pour VM " + dstVm.getId());
+			}
+		}
+
+		// Soumission au scheduler
+		dstVm.getCloudletScheduler().cloudletSubmit(cloudlet, 0.0);
+
+		System.out.println("💡 VM  dstVm" + dstVm.getId() + " uses Scheduler: "
+				+ dstVm.getCloudletScheduler().getClass().getSimpleName());
+
+		// Forcer le traitement
+		Host host = getVmAllocationPolicy().getHost(dstVm);
+		List<Double> mipsShare = host.getVmScheduler().getAllocatedMipsForVm(dstVm);
+		if (mipsShare == null || mipsShare.isEmpty()) {
+			logError("MIPS non alloués pour VM " + dstVm.getId() + ". Annulation soumission cloudlet.");
+			return;
+		}
+		System.out.println("🚀 MIPS Share pour VM " + dstVm.getId() + ": " + mipsShare);
+
+		double nextEventTime = dstVm.updateVmProcessing(CloudSim.clock(), mipsShare);
+		if (nextEventTime > 0 && nextEventTime < Double.MAX_VALUE) {
+			schedule(getId(), nextEventTime, CloudSimTagsSDN.VM_UPDATE);
+		}
+
+		System.out
+				.println("🔗 Mapping Request ID " + req.getRequestId() + " to Cloudlet ID " + cloudlet.getCloudletId());
+
+		requestsTable.put(cloudlet.getCloudletId(), req);
+
+		System.out.println("📌 Added requestMap[CloudletID=" + cloudlet.getCloudletId() +
+				"] → VM=" + ((SDNVm) dstVm).getName() + ", Request ID=" + req.getRequestId());
+
+		// logDebug("🚀 Cloudlet soumis → ID: " + cloudlet.getCloudletId() + " à VM ID:
+		// " + dstVmId);
+
+		// Mise à jour de la requête avec les délais calculés
+		updateRequestDelays(req, cloudletLen, processingDelay, propagationDelay, transmissionDelay);
+
+		// Planifier l’événement de fin de traitement
+		// scheduleWorkloadCompletion(req, processingDelay + propagationDelay +
+		// transmissionDelay);
+		System.out.println("⏳ Dynamic Latency: Static timer disabled. Waiting for CloudletScheduler to finish.");
+	}
+
+	private UtilizationModel utilizationModel;
+
+	public Cloudlet generateCloudlet(long cloudletId, int userId, int vmId, int length) {
+		System.out.println("############# generateCloudlet");
+		int peNum = 1;
+		long fileSize = 300;
+		long outputSize = 300;
+
+		// ✅ Ajout d'un modèle d'utilisation correct
+		UtilizationModel utilizationModel = new UtilizationModelFull(); // 100% usage de CPU/RAM/BW
+
+		Cloudlet cloudlet = new Cloudlet(
+				(int) cloudletId,
+				length,
+				peNum,
+				fileSize,
+				outputSize,
+				utilizationModel,
+				utilizationModel,
+				utilizationModel);
+
+		cloudlet.setUserId(userId);
+		cloudlet.setVmId(vmId);
+
+		System.out.println("✅ Cloudlet généré : ID=" + cloudletId + " | Length=" + length + " | VM ID=" + vmId
+				+ " | User ID=" + userId);
+
+		return cloudlet;
+	}
+	// private void processWorkloadSubmit(SimEvent ev) {
+	// Workload wl = (Workload) ev.getData();
+	// Request req = wl.request;
+
+	// logDebug("Processing Workload for Request ID: " + req.getRequestId());
+	// logDebug("- Submit VM ID: " + wl.submitVmId);
+	// logDebug("- Cloudlet Length: " + req.getLastProcessingCloudletLen());
+
+	// // Initialization
+	// int vmId = req.getLastProcessingVmId() != -1 ? req.getLastProcessingVmId() :
+	// wl.submitVmId;
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// req.setLastProcessingVmId(vmId);
+	// req.setLastProcessingCloudletLen(cloudletLen);
+
+	// // Get source host and VM
+	// SDNHost srcHost = (SDNHost) getVmAllocationPolicy().getHost(vmId,
+	// req.getUserId());
+	// if (srcHost == null) {
+	// logError("Source host not found for VM ID " + vmId);
+	// return;
+	// }
+
+	// Vm srcVm = srcHost.getVm(vmId, req.getUserId());
+	// if (srcVm == null) {
+	// logError("Source VM not found for ID " + vmId);
+	// return;
+	// }
+
+	// // Calculate processing delay
+	// double processingDelay = srcHost.calculateProcessingDelay(cloudletLen, vmId);
+	// Node srcNode = nos.getNodeById(srcHost.getId());
+	// Node dstNode = srcNode; // Default to same node
+
+	// // Network transmission handling
+	// Packet pkt = req.getLastTransmission() != null ?
+	// req.getLastTransmission().getPacket() : null;
+	// double propagationDelay = 0;
+	// double transmissionDelay = 0;
+
+	// if (pkt != null) {
+	// req.setPacketSizeBytes(pkt.getSize());
+	// long packetBits = pkt.getSize() * 8L;
+
+	// // Get destination VM and host
+	// Host dstHostObj = getVmAllocationPolicy().getHost(pkt.getDestination(),
+	// req.getUserId());
+	// if (dstHostObj == null) {
+	// logError("Destination host not found for VM ID " + pkt.getDestination());
+	// return;
+	// }
+
+	// Vm dstVm = dstHostObj.getVm(pkt.getDestination(), req.getUserId());
+	// if (dstVm == null) {
+	// logError("Destination VM not found for ID " + pkt.getDestination());
+	// return;
+	// }
+
+	// SDNHost dstHost = (SDNHost) dstVm.getHost();
+	// dstNode = nos.getNodeById(dstHost.getId());
+
+	// // Update request metadata before path calculation
+	// updateRequestMetadata(req, pkt, (SDNVm)dstVm);
+
+	// logDebug("→ Source Host: " + srcHost.getName() + " (ID=" + srcHost.getId() +
+	// ")");
+	// logDebug("→ Destination Host: " + dstHost.getName() + " (ID=" +
+	// dstHost.getId() + ")");
+	// logDebug("→ Source VM: " + ((SDNVm) srcVm).getName() + " (ID=" +
+	// srcVm.getId() + ")");
+	// logDebug("→ Destination VM: " + ((SDNVm) dstVm).getName() + " (ID=" +
+	// dstVm.getId() + ")");
+
+	// // Check if source and destination are on same host
+	// if (srcHost.getId() == dstHost.getId()) {
+	// logDebug("Local traffic between VMs on same host: " + srcHost.getName());
+	// propagationDelay = 0;
+	// transmissionDelay = 0;
+	// } else {
+	// // Find best path
+	// LinkSelectionPolicyDynamicLatencyBw policy =
+	// new LinkSelectionPolicyDynamicLatencyBw(nos.getNetworkTopology());
+	// List<Link> path = policy.findBestPath(srcNode, dstNode, pkt);
+
+	// if (path == null || path.isEmpty()) {
+	// logError("No path found from " + srcHost.getName() + " to " +
+	// dstHost.getName());
+	// return;
+	// }
+
+	// // Debug path and calculate delays
+	// logDebug("Calculated path for request " + req.getRequestId() + ":");
+	// Node current = srcNode;
+	// for (Link link : path) {
+	// Node next = link.getOtherNode(current);
+	// double bw = link.getBw(current);
+	// double propDelay = link.calculateDynamicPropagationDelay();
+	// double txDelay = (packetBits / (bw * link.getEfficiency()));
+
+	// logDebug(String.format(" %s → %s (BW=%.1f Mbps, Delay=%.6f ms)",
+	// current.getName(),
+	// next.getName(),
+	// bw/1e6,
+	// propDelay));
+
+	// propagationDelay += propDelay;
+	// transmissionDelay += txDelay;
+	// current = next;
+	// }
+	// }
+	// } else {
+	// logWarning("No transmission packet - CPU-only workload");
+	// }
+
+	// // Update request with calculated delays
+	// updateRequestDelays(req, cloudletLen, processingDelay, propagationDelay,
+	// transmissionDelay);
+
+	// // Schedule completion
+	// scheduleWorkloadCompletion(req, processingDelay + propagationDelay +
+	// transmissionDelay);
+	// }
+
+	private void updateRequestMetadata(Request req, Packet pkt, SDNVm srcVm, SDNVm dstVm, SDNHost srcHost,
+			SDNHost dstHost) {
+		try {
+			if (srcHost == null || dstHost == null) {
+				throw new IllegalStateException("Host resolution failed for packet: " + pkt);
+			}
+
+			// Set host names
+			req.setSrcHostName(srcHost.getName());
+			req.setDstHostName(dstHost.getName());
+
+			// Set VM names
+			if (srcVm != null) {
+				req.setSourceVmName(srcVm.getName());
+			}
+			if (dstVm != null) {
+				req.setDestinationVmName(dstVm.getName());
+			}
+
+		} catch (Exception e) {
+			logError("ERROR in updateRequestMetadata: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+
+	/* Fonctionn rest prop & trans delay */
+	// private void processWorkloadSubmit(SimEvent ev) {
+	// Workload wl = (Workload) ev.getData();
+	// Request req = wl.request;
+
+	// // Debug initial
+	// logDebug("Processing Workload for Request ID: " + req.getRequestId());
+	// logDebug("- Submit VM ID: " + wl.submitVmId);
+	// logDebug("- Cloudlet Length: " + req.getLastProcessingCloudletLen());
+
+	// // Initialisation des paramètres
+	// int vmId = req.getLastProcessingVmId() != -1 ? req.getLastProcessingVmId() :
+	// wl.submitVmId;
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// req.setLastProcessingVmId(vmId);
+	// req.setLastProcessingCloudletLen(cloudletLen);
+
+	// // Récupération de l'hôte source
+	// SDNHost host = (SDNHost) getVmAllocationPolicy().getHost(vmId,
+	// req.getUserId());
+	// if (host == null) {
+	// logError("Host not found for VM ID " + vmId);
+	// return;
+	// }
+
+	// // Calcul du délai de traitement
+	// double processingDelay = host.calculateProcessingDelay(cloudletLen, vmId);
+	// Node src = nos.getNodeById(host.getId());
+	// Node dst = src; // Par défaut, même hôte
+
+	// // Gestion de la transmission réseau
+	// Packet pkt = req.getLastTransmission() != null ?
+	// req.getLastTransmission().getPacket() : null;
+	// double propagationDelay = 0;
+	// double transmissionDelay = 0;
+
+	// if (pkt != null) {
+	// req.setPacketSizeBytes(pkt.getSize());
+	// long packetBits = pkt.getSize() * 8L;
+
+	// // Récupération de la VM destination
+	// Vm dstVm = getVmAllocationPolicy().getHost(pkt.getDestination(),
+	// req.getUserId())
+	// .getVm(pkt.getDestination(), req.getUserId());
+
+	// if (dstVm != null) {
+	// dst = nos.getNodeById(((SDNVm)dstVm).getHost().getId());
+
+	// // Mise à jour des métadonnées
+	// updateRequestMetadata(req, pkt, (SDNVm)dstVm);
+
+	// // Recherche du meilleur chemin
+	// LinkSelectionPolicyDynamicLatencyBw policy =
+	// new LinkSelectionPolicyDynamicLatencyBw(nos.getNetworkTopology());
+	// List<Link> path = policy.findBestPath(src, dst, pkt);
+
+	// if (path == null) {
+	// logError("No path found from " + src.getName() + " to " + dst.getName());
+	// return;
+	// }
+
+	// // Calcul des délais réseau
+	// for (Link link : path) {
+	// propagationDelay += link.calculateDynamicPropagationDelay();
+	// transmissionDelay += (packetBits / (link.getBw() * link.getEfficiency()));
+
+	private void updateRequestDelays(Request req, long cloudletLen,
+			double procDelay, double propDelay, double txDelay) {
+		req.setCloudletLength(cloudletLen);
+		req.setProcessingDelay(procDelay);
+		req.setPropagationDelay(propDelay);
+		req.setTransmissionDelay(txDelay);
+
+		logDebug(String.format("Delays for Request %d: proc=%.3f, prop=%.3f, tx=%.3f",
+				req.getRequestId(), procDelay, propDelay, txDelay));
+	}
+
+	private void scheduleWorkloadCompletion(Request req, double totalDelay) {
+		logInfo(String.format("Scheduling WORKLOAD_COMPLETED in %.3fs for Request ID %d",
+				totalDelay, req.getRequestId()));
+
+		Request transferReq = new Request(req);
+		send(getId(), totalDelay, CloudSimTagsSDN.WORKLOAD_COMPLETED, transferReq);
+	}
+
+	// Méthodes de logging
+	private void logDebug(String message) {
+		System.out.println("[DEBUG] " + message);
+	}
+
+	private void logInfo(String message) {
+		System.out.println("[INFO] " + message);
+	}
+
+	private void logWarning(String message) {
+		System.err.println("[WARN] " + message);
+	}
+
+	private void logError(String message) {
+		System.err.println("[ERROR] " + message);
+	}
+
+	// private void processWorkloadSubmit(SimEvent ev) {
+	// Workload wl = (Workload) ev.getData();
+	// Request req = wl.request;
+
+	// System.out.println("DEBUG - Workload details:");
+	// System.out.println("- Submit VM: " + wl.submitVmId);
+	// System.out.println("- CloudletLen from request: " +
+	// req.getLastProcessingCloudletLen());
+
+	// // Initialisation
+	// Long packetSize = null;
+	// Packet pkt = null;
+	// long packetBits = 0;
+	// double propagationDelay = 0;
+	// double transmissionDelay = 0;
+
+	// // FIX: Use submitVmId from workload as the processing VM if not set in
+	// request
+	// int vmId = req.getLastProcessingVmId() != -1 ? req.getLastProcessingVmId() :
+	// wl.submitVmId;
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// req.setLastProcessingVmId(vmId); // Ensure request has the correct VM ID
+	// req.setLastProcessingCloudletLen(cloudletLen);
+
+	// SDNHost host = (SDNHost) getVmAllocationPolicy().getHost(vmId,
+	// req.getUserId());
+	// if (host == null) {
+	// System.err.println("⚠ Host not found for VM ID " + vmId);
+	// return;
+	// }
+
+	// double processingDelay = host.calculateProcessingDelay(cloudletLen, vmId);
+	// Node src = nos.getNodeById(host.getId());
+	// Node dst = null;
+
+	// // Vérifie l'existence de la transmission
+	// if (req.getLastTransmission() != null) {
+	// pkt = req.getLastTransmission().getPacket();
+
+	// if (pkt != null) {
+	// req.setPacketSizeBytes(pkt.getSize());
+	// packetSize = pkt.getSize();
+	// packetBits = pkt.getSize() * 8L;
+	// }
+	// }
+
+	// System.out.println("- Packet size: " + (packetSize != null ? packetSize :
+	// "null"));
+	// System.out.println("▶ WORKLOAD_SUBMIT received for Request ID: " +
+	// req.getRequestId()
+	// + " Source=" + req.getSourceVmName() + " Dest=" +
+	// req.getDestinationVmName());
+
+	// // ⚠ Gestion du cas sans transmission
+	// if (pkt == null) {
+	// System.out.println("⚠ No transmission found for Request ID " +
+	// req.getRequestId() + " — fallback to CPU-only");
+	// dst = src; // même hôte
+	// } else {
+	// Vm dstVm = getVmAllocationPolicy().getHost(pkt.getDestination(),
+	// req.getUserId()).getVm(pkt.getDestination(), req.getUserId());
+	// //dst = nos.getNodeById(pkt.getDestination());
+
+	// if (dstVm != null) {
+	// dst = nos.getNodeById(((SDNVm)dstVm).getHost().getId());
+	// }
+
+	// if (src == null || dst == null) {
+	// System.err.println("⚠ Source or destination node not found");
+	// return;
+	// }
+
+	// // Mappage noms de hosts
+	// req.setSrcHostName(src.getName());
+	// req.setDstHostName(dst.getName());
+
+	// // Mappage noms de VMs
+	// SDNHost srcHost = (SDNHost) getVmAllocationPolicy().getHost(pkt.getOrigin(),
+	// req.getUserId());
+	// if (srcHost != null) {
+	// SDNVm srcVm = (SDNVm) srcHost.getVm(pkt.getOrigin(), req.getUserId());
+	// if (srcVm != null) {
+	// req.setSourceVmName(srcVm.getName());
+	// req.setLastProcessingVmId(srcVm.getId()); // Ensure correct source VM ID
+	// }
+	// }
+
+	// SDNHost dstHost = (SDNHost)
+	// getVmAllocationPolicy().getHost(pkt.getDestination(), req.getUserId());
+	// if (dstHost != null) {
+	// SDNVm dstVmm = (SDNVm) dstHost.getVm(pkt.getDestination(), req.getUserId());
+	// if (dstVmm != null) req.setDestinationVmName(dstVmm.getName());
+	// }
+
+	// // Calcul du chemin réseau
+	// LinkSelectionPolicyDynamicLatencyBw policy =
+	// new LinkSelectionPolicyDynamicLatencyBw(nos.getNetworkTopology());
+	// List<Link> path = policy.findBestPath(src, dst, pkt);
+
+	// if (path == null) {
+	// System.err.println("⚠ No path found for Request ID " + req.getRequestId());
+	// return;
+	// }
+
+	// for (Link link : path) {
+	// propagationDelay += link.calculateDynamicPropagationDelay();
+	// transmissionDelay += (packetBits / (link.getBw() * link.getEfficiency()));
+	// }
+	// }
+
+	// double totalLatency = processingDelay + propagationDelay + transmissionDelay;
+
+	// req.setCloudletLength(cloudletLen);
+	// req.setProcessingDelay(processingDelay);
+	// req.setPropagationDelay(propagationDelay);
+	// req.setTransmissionDelay(transmissionDelay);
+
+	// System.out.println(String.format(
+	// "▶ Scheduling WORKLOAD_COMPLETED in %.3fs (proc=%.3fs, prop=%.3fs, tx=%.3fs)
+	// for Request ID %d",
+	// totalLatency, processingDelay, propagationDelay, transmissionDelay,
+	// req.getRequestId()));
+
+	// // DEBUG output
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with procDelay=" + req.getProcessingDelay());
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with propDelay=" + req.getPropagationDelay());
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with transDelay=" + req.getTransmissionDelay());
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with hostSRc=" + req.getSrcHostName());
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with HostDest=" + req.getDstHostName());
+
+	// // Transmission info (si existe)
+	// if (pkt != null) {
+	// System.out.println("DEBUG - SrcVmId=" + pkt.getOrigin());
+	// System.out.println("DEBUG - DstVmId=" + pkt.getDestination());
+	// }
+
+	// // Envoi vers le broker
+	// Request transferReq = new Request(req);
+	// send(getId(), totalLatency, CloudSimTagsSDN.WORKLOAD_COMPLETED, transferReq);
+	// }
+
+	// private void processWorkloadSubmit(SimEvent ev) {
+	// Workload wl = (Workload) ev.getData();
+	// Request req = wl.request;
+
+	// System.out.println("DEBUG - Workload details:");
+	// System.out.println("- Submit VM: " + wl.submitVmId);
+	// System.out.println("- CloudletLen from request: " +
+	// req.getLastProcessingCloudletLen());
+
+	// // Safe packet size check
+	// Long packetSize = null;
+	// Packet pkt = null;
+	// if (req.getLastTransmission() != null) {
+	// pkt = req.getLastTransmission().getPacket();
+	// req.setPacketSizeBytes(pkt.getSize());
+	// packetSize = pkt != null ? pkt.getSize() : null;
+	// }
+	// System.out.println("- Packet size: " + (packetSize != null ? packetSize :
+	// "null"));
+
+	// System.out.println("▶ WORKLOAD_SUBMIT received for Request ID: " +
+	// req.getRequestId() +"Source"+req.getSourceVmName()+ " Dest :"+
+	// req.getDestinationVmName());
+
+	// // Initialize result writer if not already done
+	// WorkloadParser wp = w1.get(wl.getAppId());
+
+	// int vmId = req.getLastProcessingVmId();
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// req.setLastProcessingCloudletLen(cloudletLen);
+
+	// // Initialize network variables with defaults
+	// double propagationDelay = 0;
+	// double transmissionDelay = 0;
+
+	// // Get host here so it's available for both compute and network processing
+	// SDNHost host = (SDNHost) getVmAllocationPolicy().getHost(vmId,
+	// req.getUserId());
+	// if (host == null) {
+	// System.err.println("⚠ Host not found for VM ID " + vmId);
+	// return;
+	// }
+
+	// String srcHostName ;
+	// String dstHostName ; // Default to same host for CPU workloads
+	// long packetBits = 0 ;
+	// Node src = nos.getNodeById(host.getId());
+	// Node dst = nos.getNodeById(pkt.getDestination());
+
+	// // Only calculate network delays if transmission exists
+	// if (pkt != null) {
+	// packetBits = pkt.getSize() * 8L;
+
+	// srcHostName = src.getName();
+	// dstHostName = dst.getName();
+
+	// // Store host names in the request
+	// req.setSrcHostName(srcHostName);
+	// req.setDstHostName(dstHostName);
+
+	// // Récupération des noms de VMs
+	// SDNVm vm = (SDNVm) host.getVm(vmId, req.getUserId());
+	// if (vm != null) {
+	// req.setDestinationVmName(vm.getName());
+	// req.setSourceVmName(vm.getName());// Par défaut même VM pour CPU
+	// }
+
+	// if (src == null || dst == null) {
+	// System.err.println("⚠ Source or destination node not found");
+	// return;
+	// }
+
+	// // // Récupération du nom de la VM destination si disponible
+	// // SDNHost dstHost = (SDNHost)
+	// getVmAllocationPolicy().getHost(pkt.getDestination(), req.getUserId());
+	// // if (dstHost != null) {
+	// // SDNVm dstVm = (SDNVm) dstHost.getVm(pkt.getDestination(),
+	// req.getUserId());
+	// // if (dstVm != null) {
+	// // req.setDestinationVmName(dstVm.getName());
+	// // }
+	// // }
+
+	// }
+
+	// LinkSelectionPolicyDynamicLatencyBw policy =
+	// new LinkSelectionPolicyDynamicLatencyBw(nos.getNetworkTopology());
+	// List<Link> path = policy.findBestPath(src, dst, pkt);
+
+	// if (path == null) {
+	// System.err.println("⚠ No path found for Request ID " + req.getRequestId());
+	// return;
+	// }
+
+	// for (Link link : path) {
+	// propagationDelay += link.calculateDynamicPropagationDelay();
+	// transmissionDelay += (packetBits / (link.getBw() * link.getEfficiency()));
+	// }
+
+	// // Calculate processing delay (needs host)
+	// double processingDelay = host.calculateProcessingDelay(cloudletLen, vmId);
+	// double totalLatency = processingDelay + propagationDelay + transmissionDelay;
+
+	// // Save computed values
+	// req.setCloudletLength(cloudletLen);
+	// req.setProcessingDelay(processingDelay);
+	// req.setPropagationDelay(propagationDelay);
+	// req.setTransmissionDelay(transmissionDelay);
+
+	// // Récupération de la VM source
+	// SDNHost srcHostForVmName = (SDNHost)
+	// getVmAllocationPolicy().getHost(pkt.getOrigin(), req.getUserId());
+	// if (srcHostForVmName != null) {
+	// SDNVm srcVm = (SDNVm) srcHostForVmName.getVm(pkt.getOrigin(),
+	// req.getUserId());
+	// if (srcVm != null) {
+	// req.setSourceVmName(srcVm.getName());
+	// }
+	// }
+
+	// // Récupération de la VM destination
+	// SDNHost dstHostForVmName = (SDNHost)
+	// getVmAllocationPolicy().getHost(pkt.getDestination(), req.getUserId());
+	// if (dstHostForVmName != null) {
+	// SDNVm dstVm = (SDNVm) dstHostForVmName.getVm(pkt.getDestination(),
+	// req.getUserId());
+	// if (dstVm != null) {
+	// req.setDestinationVmName(dstVm.getName());
+	// }
+	// }
+	// System.out.println(String.format(
+	// "▶ Scheduling WORKLOAD_COMPLETED in %.3fs (proc=%.3fs, prop=%.3fs, tx=%.3fs)
+	// for Request ID %d",
+	// totalLatency, processingDelay, propagationDelay, transmissionDelay,
+	// req.getRequestId()));
+
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with procDelay=" + req.getProcessingDelay());
+
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with propDelay=" + req.getPropagationDelay());
+
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with transDelay=" + req.getTransmissionDelay());
+
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with SrcVmName=" + pkt.getOrigin());
+
+	// System.out.println("DEBUG - Sending Request ID " + req.getRequestId() +
+	// " with DestVmName=" + pkt.getDestination());
+
+	// // Create a new object to ensure clean transfer
+	// Request transferReq = new Request(req);
+
+	// send(getId(), totalLatency, CloudSimTagsSDN.WORKLOAD_COMPLETED, transferReq);
+	// }
+
+	/* Fin MAJ */
+	public void processUpdateProcessing() {
+		System.out.println("#################### processUpdateProcessing");
+
+		// ⚡ Update switch energy consumption
+		for (Node node : nos.getPhysicalTopology().getAllNodes()) {
+			if (node instanceof org.cloudbus.cloudsim.sdn.physicalcomponents.switches.Switch) {
+				node.updateNetworkUtilization();
+			}
+		}
+
+		updateCloudletProcessing(); // Force Processing - TRUE!
+		checkCloudletCompletion();
+	}
+
+	protected void processCloudletSubmit(SimEvent ev, boolean ack) {
+		System.out.println("#################### processCloudletSubmit");
+		// gets the Cloudlet object
+		Cloudlet cl = (Cloudlet) ev.getData();
+
+		// Clear out the processed data for the previous time slot before Cloudlet
+		// submitted
+		updateCloudletProcessing();
+
+		try {
+			// checks whether this Cloudlet has finished or not
+			if (cl.isFinished()) {
+				String name = CloudSim.getEntityName(cl.getUserId());
+				Log.printLine(getName() + ": Warning - Cloudlet #" + cl.getCloudletId() + " owned by " + name
+						+ " is already completed/finished.");
+				Log.printLine("Therefore, it is not being executed again");
+				Log.printLine();
+
+				// NOTE: If a Cloudlet has finished, then it won't be processed.
+				// So, if ack is required, this method sends back a result.
+				// If ack is not required, this method don't send back a result.
+				// Hence, this might cause CloudSim to be hanged since waiting
+				// for this Cloudlet back.
+				if (ack) {
+					int[] data = new int[3];
+					data[0] = getId();
+					data[1] = cl.getCloudletId();
+					data[2] = CloudSimTags.FALSE;
+
+					// unique tag = operation tag
+					int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
+					sendNow(cl.getUserId(), tag, data);
+				}
+
+				sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cl);
+
+				return;
+			}
+
+			// process this Cloudlet to this CloudResource
+			cl.setResourceParameter(getId(), getCharacteristics().getCostPerSecond(), getCharacteristics()
+					.getCostPerBw());
+
+			int userId = cl.getUserId();
+			int vmId = cl.getVmId();
+			// time to transfer the files
+			double fileTransferTime = predictFileTransferTime(cl.getRequiredFiles());
+
+			SDNHost host = (SDNHost) getVmAllocationPolicy().getHost(vmId, userId);
+			Vm vm = host.getVm(vmId, userId);
+			CloudletScheduler scheduler = vm.getCloudletScheduler();
+
+			double estimatedFinishTime = scheduler.cloudletSubmit(cl, fileTransferTime); // This estimated time is
+																							// useless
+
+			// host.adjustMipsShare();
+			// estimatedFinishTime = scheduler.getNextFinishTime(CloudSim.clock(),
+			// scheduler.getCurrentMipsShare());
+
+			// Check the new estimated time by using host's update VM processing funciton.
+			// This function is called only to check the next finish time
+			estimatedFinishTime = host.updateVmsProcessing(CloudSim.clock());
+
+			double estimatedFinishDelay = estimatedFinishTime - CloudSim.clock();
+			// estimatedFinishTime -= CloudSim.clock();
+
+			// if this cloudlet is in the exec queue
+			if (estimatedFinishDelay > 0.0 && estimatedFinishTime < Double.MAX_VALUE) {
+				estimatedFinishTime += fileTransferTime;
+				// Log.printLine(getName() + ".processCloudletSubmit(): " + "Cloudlet is going
+				// to be processed at: "+(estimatedFinishTime + CloudSim.clock()));
+
+				// gurantees a minimal interval before scheduling the event
+				if (estimatedFinishDelay < CloudSim.getMinTimeBetweenEvents()) {
+					estimatedFinishDelay = CloudSim.getMinTimeBetweenEvents();
+				}
+
+				send(getId(), estimatedFinishDelay, CloudSimTags.VM_DATACENTER_EVENT);
+			}
+
+			if (ack) {
+				int[] data = new int[3];
+				data[0] = getId();
+				data[1] = cl.getCloudletId();
+				data[2] = CloudSimTags.TRUE;
+
+				// unique tag = operation tag
+				int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
+				sendNow(cl.getUserId(), tag, data);
+			}
+		} catch (ClassCastException c) {
+			Log.printLine(getName() + ".processCloudletSubmit(): " + "ClassCastException error.");
+			c.printStackTrace();
+		} catch (Exception e) {
+			Log.printLine(getName() + ".processCloudletSubmit(): " + "Exception error.");
+			e.printStackTrace();
+		}
+
+		checkCloudletCompletion();
+	}
+
+	/* MAJ Nadia */
+	@Override
+	protected void checkCloudletCompletion() {
+		System.out.println("⚡️ [CustomDC] checkCloudletCompletion() invoked at: " + CloudSim.clock());
+
+		if (!nos.isApplicationDeployed()) {
+			super.checkCloudletCompletion();
+			return;
+		}
+
+		List<? extends Host> list = getVmAllocationPolicy().getHostList();
+
+		for (Host host : list) {
+			for (Vm vm : host.getVmList()) {
+
+				// Check all completed Cloudlets
+				while (vm.getCloudletScheduler().isFinishedCloudlets()) {
+					Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
+					Request req = requestsTable.remove(cl.getCloudletId());
+					// System.out.println("📦 Requête récupérée: reqID = " + (req != null ?
+					// req.getRequestId() : "null") +
+					// " | cloudletID = " + cl.getCloudletId());
+
+					if (req == null) {
+						// System.err.println("❌ [checkCloudletCompletion] Aucune Request trouvée pour
+						// Cloudlet ID "
+						// + cl.getCloudletId());
+						continue;
+					}
+
+					// System.out.println(
+					// "🔍 Tentative de récupération de la Request pour Cloudlet ID " +
+					// cl.getCloudletId());
+
+					req.getPrevActivity().setFinishTime(CloudSim.clock());
+
+					// MAJ Nadia : Dynamic Performance Logging at Completion
+					double realTotalLatency = CloudSim.clock() - req.getSubmitTime();
+					double networkLatency = req.getPropagationDelay() + req.getTransmissionDelay();
+					double realProcessingDelay = Math.max(0, realTotalLatency - networkLatency);
+
+					LogManager.log("path_latency_final.csv", LogManager.formatData(
+							CloudSim.clock(),
+							req.getSrcHostName(),
+							req.getDstHostName(),
+							req.getPathString(),
+							String.format(Locale.US, "%.4f", req.getMinBwVal()),
+							String.format(Locale.US, "%.2f", req.getAvgBwUsedMbps()),
+							String.format(Locale.US, "%.2f", req.getAvgPctUseMbps()),
+							String.format(Locale.US, "%.4f", networkLatency * 1000),
+							String.format(Locale.US, "%.4f", realProcessingDelay * 1000),
+							String.format(Locale.US, "%.4f", realTotalLatency * 1000),
+							"true"));
+
+					if (req.isFinished()) {
+						// IT22: suppression du double-send WORKLOAD_COMPLETED (delay=0) qui causait une
+						// boucle infinie
+						System.out.println("🚀 [SDNDatacenter] Sending REQUEST_COMPLETED to Broker ID: "
+								+ req.getUserId() + " for Req ID: " + req.getRequestId());
+						send(req.getUserId(), CloudSim.getMinTimeBetweenEvents(), CloudSimTagsSDN.REQUEST_COMPLETED,
+								req);
+						System.out.println("✅ [SDNDatacenter] REQUEST_COMPLETED for reqID: "
+								+ req.getRequestId());
+					} else {
+						// FIXED IT15: Processing activities must be removed here so the next activity
+						// can be processed!
+						req.removeNextActivity();
+						processNextActivity(req);
+						System.out.println("➡️ Continuing next activity for reqID: " + req.getRequestId());
+					}
+				}
+
+				// while (vm.getCloudletScheduler().isFinishedCloudlets()) {
+				// Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
+				// Request req = requestsTable.remove(cl.getCloudletId());
+				// if (req == null) {
+				// System.err.println("❌ [checkCloudletCompletion] Aucune Request trouvée pour
+				// Cloudlet ID " + cl.getCloudletId());
+				// continue; // on passe au suivant
+				// }
+
+				// System.out.println("🔍 Tentative de récupération de la Request pour Cloudlet
+				// ID " + cl.getCloudletId());
+
+				// if (cl != null) {
+
+				// req.getPrevActivity().setFinishTime(CloudSim.clock());
+
+				// if (req.isFinished()) {
+				// // All activities done ➜ complete request
+				// send(req.getUserId(), CloudSim.getMinTimeBetweenEvents(),
+				// CloudSimTagsSDN.REQUEST_COMPLETED, req);
+				// System.out.println("✅ REQUEST_COMPLETED for reqID: " + req.getRequestId());
+
+				// } else {
+				// // Continue processing the next activity (transmission)
+				// processNextActivity(req);
+				// System.out.println("➡️ Continuing next activity for reqID: " +
+				// req.getRequestId());
+				// }
+				// }
+				// }
+
+				// Check for failed Cloudlets (timeout, error, etc.)
+				List<Cloudlet> failedCloudlet = ((CloudletSchedulerMonitor) vm.getCloudletScheduler())
+						.getFailedCloudlet();
+				for (Cloudlet cl : failedCloudlet) {
+					processCloudletFailed(cl);
+					System.out.println("❌ Cloudlet failed, ID: " + cl.getCloudletId());
+					System.out.println("Cloudlet ID -status: " + cl.getStatus() + " - Progress: "
+							+ cl.getCloudletFinishedSoFar() + "/" + cl.getCloudletLength());
+				}
+
+				// Dans checkCloudletCompletion()
+				// System.out.println("Vérification des Cloudlets terminés pour VM " +
+				// vm.getId());
+				// while (vm.getCloudletScheduler().isFinishedCloudlets()) {
+				// Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
+				// System.out.println("Cloudlet " + cl.getCloudletId() + " terminé");
+				// }
+			}
+		}
+	}
+
+	@Override
+	protected void updateCloudletProcessing() {
+		double currentTime = CloudSim.clock();
+		if (currentTime > getLastProcessTime()) {
+			List<? extends Host> hosts = getHostList();
+			double nextEvent = Double.MAX_VALUE;
+
+			for (Host host : hosts) {
+				double time = host.updateVmsProcessing(currentTime);
+				if (time < nextEvent) {
+					nextEvent = time;
+				}
+			}
+
+			// FIXED IT14: Added minimum delay to prevent freezing simulation loops due to
+			// long truncation of tiny timespans.
+			double minDelay = CloudSim.getMinTimeBetweenEvents() + 0.01;
+			if (nextEvent < currentTime + minDelay) {
+				nextEvent = currentTime + minDelay;
+			}
+
+			if (nextEvent != Double.MAX_VALUE) {
+				schedule(getId(), nextEvent - currentTime, CloudSimTags.VM_DATACENTER_EVENT);
+			}
+			setLastProcessTime(currentTime);
+		}
+	}
+	// protected void updateCloudletProcessing() {
+	// System.out.println("############## updateCloudletProcessing " );
+	// double currentTime = CloudSim.clock();
+	// if (currentTime < 0.111 || currentTime > getLastProcessTime() +
+	// CloudSim.getMinTimeBetweenEvents()) {
+
+	// List<? extends Host> list = getVmAllocationPolicy().getHostList();
+	// double smallerTime = Double.MAX_VALUE;
+
+	// for (Host host : list) {
+	// double time = host.updateVmsProcessing(currentTime);
+
+	// if (time < smallerTime) {
+	// smallerTime = time;
+	// }
+	// }
+
+	// if (smallerTime < currentTime + CloudSim.getMinTimeBetweenEvents() + 0.01) {
+	// smallerTime = currentTime + CloudSim.getMinTimeBetweenEvents() + 0.01;
+	// }
+
+	// if (smallerTime != Double.MAX_VALUE) {
+	// schedule(getId(), (smallerTime - currentTime),
+	// CloudSimTags.VM_DATACENTER_EVENT);
+	// }
+
+	// setLastProcessTime(currentTime);
+	// }
+	// }
+
+	/* Fin MAJ */
+	// protected void checkCloudletCompletion() {
+
+	// System.out.println("############### checkCloudletCompletion");
+	// if(!nos.isApplicationDeployed())
+	// {
+	// super.checkCloudletCompletion();
+	// return;
+	// }
+
+	// List<? extends Host> list = getVmAllocationPolicy().getHostList();
+	// for (int i = 0; i < list.size(); i++) {
+	// Host host = list.get(i);
+	// for (Vm vm : host.getVmList()) {
+
+	// // Check all completed Cloudlets
+	// while (vm.getCloudletScheduler().isFinishedCloudlets()) {
+	// Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
+	// if (cl != null) {
+	// // For completed cloudlet -> process next activity.
+	// Request req = requestsTable.remove(cl.getCloudletId());
+	// req.getPrevActivity().setFinishTime(CloudSim.clock());
+
+	// if (req.isFinished()){
+	// // All requests are finished, no more activities to do. Return to user
+	// send(req.getUserId(), CloudSim.getMinTimeBetweenEvents(),
+	// CloudSimTagsSDN.REQUEST_COMPLETED, req);
+	// System.out.println("Request COMPLETED sent for reqID: " + req.getRequestId()
+	// + ", userID: " + req.getUserId());
+
+	// } else {
+	// //consume the next activity from request. It should be a transmission.
+	// processNextActivity(req);
+	// }
+	// }
+	// }
+
+	// // Check all failed Cloudlets (time out)
+	// List<Cloudlet> failedCloudlet = ((CloudletSchedulerMonitor)
+	// (vm.getCloudletScheduler())).getFailedCloudlet();
+	// for(Cloudlet cl:failedCloudlet) {
+	// processCloudletFailed(cl);
+	// }
+	// }
+	// }
+	// }
+
+	// Utiliser workloadParser dans processRequestSubmit
+	// Utiliser workloadParser dans processRequestSubmit
+	private Set<Integer> processedRequests = new HashSet<>();
+
+	private void processRequestSubmit(Request req) {
+		System.out.println("##################### processRequestSubmit");
+
+		if (processedRequests.contains(req.getRequestId())) {
+			System.out.println("Request " + req.getRequestId() + " already processed. Skipping.");
+			return;
+		}
+
+		Activity ac = req.getNextActivity();
+		// int appId = req.getAppId();
+		req.setAppId(appId);
+		req.setWorkloadParserId(appId);
+		req.setSubmitTime(CloudSim.clock());
+
+		if (ac instanceof Processing) {
+			processNextActivity(req);
+
+		} else {
+			System.err.println("Request should start with Processing!!");
+
+			// Si aucune activité n'existe encore
+			if (req.getActivities().isEmpty()) {
+
+				// ✅ Récupère le destination VM ID via le Packet
+				int destVmId = req.getDestinationVmIdFromPacket();
+
+				if (destVmId == -1) {
+					System.err.println(
+							"❌ Impossible de récupérer la VM destination pour la Request ID: " + req.getRequestId());
+					return;
+				}
+
+				// 2️⃣ Chercher la VM à partir de son nom dans le `vmNameMap`
+				String destVmName = req.getDestinationVmName();
+				Vm targetVm = SDNBroker.vmNameMap.get(destVmName);
+
+				if (targetVm == null) {
+					System.err.println("❗ Aucune VM trouvée pour le nom : " + destVmName);
+					return;
+				}
+
+				// ✅ Récupère l'ID réel et la longueur du Cloudlet
+				int vmId = targetVm.getId();
+				System.out.println("targetVm = " + targetVm);
+				System.out.println("targetVm.getId() = " + vmId);
+
+				long cloudletLen = req.getLenCloudlet();
+
+				if (cloudletLen <= 0) {
+					System.err.println("❗ cloudletLen <= 0 pour la Request ID: " + req.getRequestId());
+					return;
+				}
+
+				// ✅ Création du Cloudlet
+				long cloudletId = req.getRequestId();
+				int peNum = 1;
+
+				Cloudlet cl = workloadParser.generateCloudlet(cloudletId, vmId, (int) cloudletLen, peNum);
+
+				cl.setVmId(vmId);
+
+				Processing proc = new Processing(cl);
+				req.addActivity(proc);
+
+				// Required to map completed cloudlets back to requests
+				requestsTable.put((int) cloudletId, req);
+
+				// 🔧 Mise à jour des MIPS du Scheduler pour éviter mipsShare == null
+				Vm vm = targetVm;
+				List<Double> mipsShare = vm.getHost().getVmScheduler().getAllocatedMipsForVm(vm);
+				if (mipsShare == null || mipsShare.isEmpty()) {
+					System.err.println("❌ mipsShare vide pour VM " + vm.getId() + " avant la soumission du Cloudlet.");
+				} else {
+					System.out.println("✅ MIPS Share pour VM " + vm.getId() + " : " + mipsShare);
+					vm.getCloudletScheduler().updateVmProcessing(CloudSim.clock(), mipsShare);
+				}
+
+				// Juste là : stocke une copie !
+				Workload wl = new Workload(req.getRequestId(), appId, req.getSubmitTime(), req, false);
+				wl.getActivities().addAll(req.getActivities()); // ✅ la copie AVANT que tu fasses removeNextActivity()
+
+				// 🔥 On passe à l'exécution
+				processNextActivity(req);
+			}
+		}
+	}
+
+	/* MAJ Nadia */
+	private void processCloudletFailed(Cloudlet cl) {
+
+		Log.printLine(CloudSim.clock() + ": " + getName() + ".processCloudletFailed(): Cloudlet failed: " + cl);
+
+		Request req = requestsTable.remove(cl.getCloudletId());
+		if (req == null) {
+			System.err.println("processCloudletFailed: Request not found for Cloudlet ID: " + cl.getCloudletId());
+			return;
+		}
+
+		Activity prev = req.getPrevActivity();
+		if (prev != null) {
+			prev.setFailedTime(CloudSim.clock());
+		} else {
+			System.err.println("❗ processCloudletFailed: prevActivity is null for Request ID: " + req.getRequestId());
+		}
+
+		Activity next = req.getNextActivity();
+		if (next != null) {
+			// Si c'est une transmission, on vérifie que le packet n'est pas null
+			if (next instanceof Transmission) {
+				Transmission trans = (Transmission) next;
+				if (trans.getPacket() != null) {
+					trans.setFailedTime(CloudSim.clock());
+				} else {
+					System.err.println(
+							"processCloudletFailed: Transmission packet is null for Request ID: " + req.getRequestId());
+				}
+			} else {
+				next.setFailedTime(CloudSim.clock());
+			}
+		}
+
+		Request lastReq = req.getTerminalRequest();
+		send(req.getUserId(), CloudSim.getMinTimeBetweenEvents(), CloudSimTagsSDN.REQUEST_FAILED, lastReq);
+	}
+
+	// private void processCloudletFailed(Cloudlet cl) {
+	// Log.printLine(CloudSim.clock() + ": " + getName() +
+	// ".processCloudletFailed(): Cloudlet failed: "+cl);
+
+	// Request req = requestsTable.remove(cl.getCloudletId());
+	// Activity prev = req.getPrevActivity();
+	// if(prev != null)
+	// prev.setFailedTime(CloudSim.clock()); // Set as finished.
+	// Activity next = req.getNextActivity();
+	// if(next != null)
+	// next.setFailedTime(CloudSim.clock()); // Set as finished.
+
+	// Request lastReq = req.getTerminalRequest();
+	// send(req.getUserId(), CloudSim.getMinTimeBetweenEvents(),
+	// CloudSimTagsSDN.REQUEST_FAILED, lastReq);
+	// }
+
+	private void processPacketFailed(Packet pkt) {
+		Log.printLine(CloudSim.clock() + ": " + getName() + ".processPacketFailed(): Packet failed: " + pkt);
+
+		pkt.setPacketFailedTime(CloudSim.clock());
+		Request req = pkt.getPayload();
+
+		Request lastReq = req.getTerminalRequest();
+		send(req.getUserId(), CloudSim.getMinTimeBetweenEvents(), CloudSimTagsSDN.REQUEST_FAILED, lastReq);
+	}
+
+	private void processPacketCompleted(Packet pkt) {
+		pkt.setPacketFinishTime(CloudSim.clock());
+		Request req = pkt.getPayload();
+		processNextActivity(req);
+	}
+
+	// private void processNextActivity(Request req) {
+	// // Log.printLine(CloudSim.clock() + ": " + getName() + ": Process next
+	// activity: " +req);
+	// Activity ac = req.removeNextActivity();
+	// ac.setStartTime(CloudSim.clock());
+
+	// if(ac instanceof Transmission) {
+	// processNextActivityTransmission((Transmission)ac);
+	// }
+	// else if(ac instanceof Processing) {
+	// processNextActivityProcessing(((Processing) ac), req);
+	// } else {
+	// Log.printLine(CloudSim.clock() + ": " + getName() + ": Activity is
+	// unknown..");
+	// }
+	// }
+	private void processNextActivity(Request req) {
+		if (req == null)
+			return;
+
+		checkLoopSafety();
+		Activity ac = req.getNextActivity();
+		if (ac == null) {
+			if (req.isFinished()) {
+				System.out.println(
+						"✅ [SDNDatacenter] Request " + req.getRequestId() + " finished at " + CloudSim.clock());
+				send(req.getUserId(), 0, CloudSimTagsSDN.WORKLOAD_COMPLETED, req);
+			}
+			return;
+		}
+
+		System.out.println("############## [SDNDatacenter] processNextActivity for Request "
+				+ req.getRequestId() + " at time " + org.cloudbus.cloudsim.core.CloudSim.clock());
+
+		if (ac instanceof Processing) {
+			// Do not remove it yet, wait for completion in checkCloudletCompletion
+			processNextActivityProcessing((Processing) ac, req);
+		} else if (ac instanceof Transmission) {
+			// Transmission usually involves a Packet being sent through NOS
+			processNextActivityTransmission((Transmission) ac);
+		} else {
+			System.err.println("❌ Unknown activity type for Request " + req.getRequestId());
+		}
+	}
+
+	private void processNextActivityProcessing(Processing proc, Request req) {
+		Cloudlet cl = proc.getCloudlet();
+		if (cl == null) {
+			// Fallback: create cloudlet if missing
+			long cloudletLen = req.getLastProcessingCloudletLen();
+			int vmId = req.getLastProcessingVmId();
+			cl = generateCloudlet(req.getRequestId(), req.getUserId(), vmId, (int) cloudletLen);
+		}
+
+		int vmId = cl.getVmId();
+		SDNHost host = (SDNHost) getVmAllocationPolicy().getHost(vmId, req.getUserId());
+		Vm vm = host.getVm(vmId, req.getUserId());
+
+		System.out.println("⚡ Submitting Cloudlet ID " + cl.getCloudletId() + " to VM " + vmId);
+
+		// Map back
+		requestsTable.put(cl.getCloudletId(), req);
+		vm.getCloudletScheduler().cloudletSubmit(cl, 0.0);
+
+		// Trigger update
+		updateCloudletProcessing();
+	}
+
+	// pkt = nos.addPacketToChannel(pkt);
+	// pkt.setPacketStartTime(CloudSim.clock());
+	// tr.setRequestedBW(nos.getRequestedBandwidth(pkt));
+	// }
+	/* MAJ Nadia */
+	private void processNextActivityTransmission(Transmission tr) {
+		Packet pkt = tr.getPacket();
+		if (pkt == null) {
+			System.err.println("❌ Transmission activity has no packet!");
+			return;
+		}
+		Request req = pkt.getPayload();
+
+		// Calculate delay
+		double totalLatency = calculateTransmissionDelay(tr);
+		if (totalLatency <= 0)
+			totalLatency = 0.001; // Avoid 0-delay loops
+
+		// System.out.println(String.format(
+		// "▶ [SDNDatacenter] Transmission Req ID %d: delay=%.3fs. Finishing activity.",
+		// req.getRequestId(), totalLatency));
+
+		// FIXED: Mark this activity as finished NOW because we are scheduling its
+		// completion
+		req.removeNextActivity();
+
+		send(super.getId(), totalLatency, CloudSimTagsSDN.REQUEST_COMPLETED, req);
+	}
+
+	private double calculateTransmissionDelay(Transmission tr) {
+		Packet pkt = tr.getPacket();
+		if (pkt == null)
+			return 0.001;
+		Request req = pkt.getPayload();
+		if (req == null)
+			return 0.001;
+
+		// FIXED IT13: Return the accurately assigned hop delays.
+		// These delays are securely scaled by dynamic link routing and path propagation
+		// in `processWorkloadSubmit`.
+		double dynamicPathDelay = req.getPropagationDelay() + req.getTransmissionDelay() + req.getProcessingDelay();
+		if (dynamicPathDelay > 0) {
+			return dynamicPathDelay;
+		}
+
+		// Fallback for isolated scenarios (e.g. tests)
+		double expectedDelay = tr.getExpectedTime();
+		if (expectedDelay > 0) {
+			return expectedDelay;
+		}
+
+		return 0.001;
+	}
+
+	// private void processNextActivityTransmission(Transmission tr) {
+	// System.out.println("################ processNextActivityTransmission ");
+	// Packet pkt = tr.getPacket();
+
+	// if (pkt == null) {
+	// System.err.println("⚠ Transmission activity has no packet! Request ID: " +
+	// pkt.getPayload());
+	// return;
+	// }
+
+	// System.out.println("📤 Processing Transmission for Packet: " + pkt);
+
+	// // Récupérer l'hôte source
+	// SDNHost srcHost = pkt.getOriginHost(nos);
+	// String srcHostName = srcHost.getName();
+
+	// System.out.println(" l'hôte source du packet: " +
+	// pkt.getOriginHost(nos).getId());
+	// if (srcHost == null) {
+	// System.err.println("⚠ ERREUR : Impossible de récupérer l'hôte source !");
+	// return;
+	// }
+
+	// // Récupérer les nœuds source et destination
+
+	// Node srcNode = nos.getNodeById(srcHost.getId());
+	// Node destNode = nos.getNodeById(pkt.getDestination());
+	// if (srcNode == null || destNode == null) {
+
+	// System.err.println("⚠ ERREUR : Nœud source ou destination introuvable
+	// !"+srcNode+" dest :"+destNode);
+	// return;
+	// }
+
+	// // Récupérer tous les liens disponibles entre la source et la destination
+	// List<Link> availableLinks = nos.getLinks(srcNode, destNode);
+	// if (availableLinks.isEmpty()) {
+	// System.err.println("⚠ ERREUR : Aucun lien disponible entre " + srcNode + " et
+	// " + destNode);
+	// return;
+	// }
+
+	// // Utiliser la politique de sélection de lien dynamique
+	// LinkSelectionPolicyDynamicLatencyBw linkSelectionPolicy = new
+	// LinkSelectionPolicyDynamicLatencyBw(nos.getNetworkTopology());
+	// Link selectedLink = linkSelectionPolicy.selectLink(availableLinks,
+	// pkt.getFlowId(), srcNode, destNode, null);
+	// if (selectedLink == null) {
+	// System.err.println("⚠ ERREUR : Aucun lien approprié trouvé entre " + srcNode
+	// + " et " + destNode);
+	// return;
+	// }
+
+	// // Mettre à jour la bande passante utilisée sur le lien sélectionné
+	// selectedLink.updateUsedBandwidth(pkt.getSize(), srcNode);
+
+	// // Calculer les délais en fonction du lien sélectionné
+	// double propagationDelay = selectedLink.calculateDynamicLatency();
+	// double transmissionDelay = tr.getExpectedTime();
+
+	// // Récupérer la longueur du cloudlet et l'ID de la VM depuis la requête
+	// Request req = pkt.getPayload();
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// int vmId = req.getLastProcessingVmId();
+
+	// if (cloudletLen <= 0) {
+	// System.err.println("⚠ Problème : cloudletLen est <= 0 pour la requête ID: " +
+	// req.getRequestId());
+	// return;
+	// }
+
+	// if (vmId < 0) {
+	// System.err.println("⚠ Problème : vmId est invalide : " + vmId);
+	// return;
+	// }
+
+	// // Calculer le délai de traitement
+	// double processingDelay = srcHost.calculateProcessingDelay(cloudletLen, vmId);
+
+	// // Créer une activité de transmission
+	// // TransmissionActivity transmissionActivity = new TransmissionActivity(pkt,
+	// processingDelay, propagationDelay, transmissionDelay);
+
+	// // // Envoyer l'activité au datacenter
+	// // send(getId(), 0, CloudSimTagsSDN.TRANSMISSION_ACTIVITY,
+	// transmissionActivity);
+
+	// double totalLatency = processingDelay + propagationDelay + transmissionDelay;
+	// System.out.println("Sending TRANSMISSION_ACTIVITY event at time: " +
+	// CloudSim.clock());
+	// send(this.getId(), totalLatency, CloudSimTagsSDN.TRANSMISSION_ACTIVITY, new
+	// TransmissionActivity(pkt, processingDelay, propagationDelay,
+	// transmissionDelay));
+	// System.out.println("▶ TransmissionActivity scheduled in " + totalLatency +
+	// "s");
+
+	// // Log pour débug
+	// System.out.println("✅ Transmission sélectionnée : " + selectedLink);
+	// System.out.println(" - Processing Delay: " + processingDelay + "s");
+	// System.out.println(" - Propagation Delay: " + propagationDelay + "s");
+	// System.out.println(" - Transmission Delay: " + transmissionDelay + "s");
+	// }
+	// private void processNextActivityTransmission(Transmission tr) {
+	// System.out.println("################ processNextActivityTransmission ");
+	// Packet pkt = tr.getPacket();
+
+	// // Utilisation de la nouvelle méthode pour récupérer l'hôte source
+	// SDNHost srcHost = pkt.getOriginHost(nos);
+
+	// if (srcHost == null) {
+	// System.err.println("⚠ ERREUR : Impossible de récupérer l'hôte source !");
+	// return;
+	// }
+
+	// // Récupérer le lien entre source et destination
+	// Link link = nos.getLink(pkt.getOrigin(), pkt.getDestination());
+
+	// if (link != null) {
+	// if (link.getBw() <= 0) {
+	// System.err.println(" Bande passante nulle ou négative détectée pendant la
+	// transmission : " + pkt.getOrigin() + " -> " + pkt.getDestination());
+	// }
+	// double propagationDelay = link.calculatePropagationDelay();
+	// pkt.setPropagationDelay(propagationDelay);
+
+	// // Récupérer la longueur du cloudlet et l'ID de la VM depuis la requête
+	// Request req = pkt.getPayload();
+	// long cloudletLen = req.getLastProcessingCloudletLen();
+	// int vmId = req.getLastProcessingVmId();
+
+	// if (req != null) {
+	// Cloudlet cl = req.getProcessingCloudlet();
+	// if (cl != null) {
+	// cloudletLen = cl.getCloudletLength();
+	// vmId = cl.getVmId(); // Récupérer l'ID de la VM associée au cloudlet
+	// }
+	// }
+
+	// if (cloudletLen <= 0) {
+	// System.err.println("⚠ Problème : cloudletLen est <= 0 pour la requête ID: " +
+	// req.getRequestId());
+	// }
+
+	// if (vmId <= 0) {
+	// System.err.println("⚠ Problème : vmId est invalide : " + vmId);
+	// }
+
+	// // Calcul du Processing Delay en utilisant cloudletLen et les MIPS de la VM
+	// double processingDelay = srcHost.calculateProcessingDelay(cloudletLen, vmId);
+
+	// // Calcul du Transmission Delay
+	// double transmissionDelay = tr.getExpectedTime();
+
+	// // Créer une activité de transmission
+	// TransmissionActivity transmissionActivity = new TransmissionActivity(pkt,
+	// processingDelay, propagationDelay, transmissionDelay);
+
+	// // Envoyer l'activité au datacenter
+	// send(getId(), 0, CloudSimTagsSDN.TRANSMISSION_ACTIVITY,
+	// transmissionActivity);
+	// } else {
+	// Log.printLine(CloudSim.clock() + ": ⚠ Aucun lien trouvé entre " +
+	// pkt.getOrigin() + " et " + pkt.getDestination());
+	// }
+	// }
+
+	// public void processNextActivityTransmission(Transmission tr) {
+	// System.out.println("##########################
+	// processNextActivityTransmission");
+	// Packet pkt = tr.getPacket();
+
+	// // Utilisation de la nouvelle méthode pour récupérer l'hôte source
+	// SDNHost srcHost = pkt.getOriginHost(nos);
+
+	// if (srcHost == null) {
+	// System.err.println("⚠ ERREUR : Impossible de récupérer l'hôte source !");
+	// return;
+	// }
+
+	// // Récupérer le lien entre source et destination
+	// Link link = nos.getLink(pkt.getOrigin(), pkt.getDestination());
+
+	// if (link != null) {
+	// double propagationDelay = link.calculatePropagationDelay();
+	// pkt.setPropagationDelay(propagationDelay);
+
+	// // Calcul du Processing Delay depuis l'hôte source
+	// double processingDelay = srcHost.calculateProcessingDelay(pkt.getSize());
+
+	// // Calcul du Transmission Delay
+	// double transmissionDelay = tr.getExpectedTime();
+
+	// // Calcul de la latence totale
+	// double totalLatency = processingDelay + propagationDelay + transmissionDelay;
+
+	// Log.printLine(CloudSim.clock() + ": Transmission " + pkt +
+	// " - Processing Delay: " + processingDelay + "s" +
+	// ", Propagation Delay: " + propagationDelay + "s" +
+	// ", Transmission Delay: " + transmissionDelay + "s" +
+	// ", Total Latency: " + totalLatency + "s.");
+	// } else {
+	// Log.printLine(CloudSim.clock() + ": ⚠ Aucun lien trouvé entre " +
+	// pkt.getOrigin() + " et " + pkt.getDestination());
+	// }
+	// }
+
+	/* MAJ Nadia */
+	// FIX: Guard against duplicate APPLICATION_SUBMIT events.
+	// The virtual topology must be parsed only once, regardless of how many
+	// APPLICATION_SUBMIT events are fired (e.g. multi-DC or broker restart).
+	private static boolean applicationAlreadyProcessed = false;
+
+	public static void reset() {
+		applicationAlreadyProcessed = false;
+		System.out.println("🔄 [SDNDatacenter] Global state reset completed.");
+	}
+
+	public void processApplication(int userId, String vmsFileName) {
+		// FIX IT23-A: Prevent double processing of the virtual topology.
+		// Do NOT send a second ACK — that would trigger applicationSubmitCompleted()
+		// twice in the broker, causing workloads to be registered twice (KPI
+		// duplication).
+		if (applicationAlreadyProcessed) {
+			System.out.println("[processApplication] ⚠️ Duplicate APPLICATION_SUBMIT ignored for: " + vmsFileName);
+			return;
+		}
+		applicationAlreadyProcessed = true;
+
+		System.out.println("📦 Processing application: " + vmsFileName);
+
+		// Increment the app ID counter
+		SDNBroker.lastAppId++;
+		this.appId = SDNBroker.lastAppId;
+		System.out.println("Assigned App ID: " + this.appId);
+
+		// Récupérer le datacenter par défaut
+		SDNDatacenter defaultDC = SDNBroker.datacenters.values().iterator().next();
+
+		// Parser la topologie virtuelle
+		VirtualTopologyParser parser = new VirtualTopologyParser(defaultDC.getName(), vmsFileName, userId);
+		defaultDC.setVirtualTopologyParser(parser);
+
+		// Pour chaque datacenter enregistré, ajouter les VMs définies dans le fichier
+		// de topologie virtuelle
+		for (String dcName : SDNBroker.datacenters.keySet()) {
+			SDNDatacenter dc = SDNBroker.datacenters.get(dcName);
+			// S'assurer que tous les datacenters ont accès au parser
+			if (dc != defaultDC) {
+				dc.setVirtualTopologyParser(parser);
+			}
+
+			NetworkOperatingSystem nos = dc.getNOS();
+
+			// Récupération de la liste des VMs pour ce datacenter
+			for (SDNVm vm : parser.getVmList(dcName)) {
+				System.out.println(
+						"------ Ajout de la VM " + vm.getName() + " (ID: " + vm.getId() + ") au Datacenter " + dcName);
+				// IMPORTANT : Pour que la VM soit réellement allouée sur un host physique,
+				// il faut utiliser la méthode d'allocation du datacenter.
+				boolean allocated = dc.processVmCreateEvent(vm, true);
+				if (!allocated) {
+					System.err
+							.println("❌ Échec de l'allocation de la VM " + vm.getName() + " (ID: " + vm.getId() + ")");
+				} else {
+					// Enregistrement dans le mapping global
+					SDNBroker.vmIdToDc.put(vm.getId(), dc);
+
+					// **nouvelle ligne** pour que PSO puisse retrouver le datacenter
+					SDNBroker.globalVmDatacenterMap.put(vm.getId(), dc);
+					// Enregistrement dans le NOS
+					nos.addVm(vm);
+					// Remplir vmNameMap (si nécessaire pour d'autres opérations)
+					vmNameMap.put(vm.getName(), vm);
+					// ▶ Créer et ajouter le Node correspondant à cette VM
+					// Node node = new SimpleNode(vm.getId(), vm.getName());
+					// nos.addNode(node);
+					SDNHost host = (SDNHost) dc.getVmAllocationPolicy().getHost(vm);
+					if (host != null) {
+						System.out.println("✅ VM " + vm.getName() + " (ID: " + vm.getId() + ") is allocated to Host "
+								+ host.getId() + " with MIPS: " + vm.getMips());
+					} else {
+						System.err.println("❌ VM " + vm.getName() + " not allocated to any host!");
+					}
+
+					nos.getPhysicalTopology().addNode(host);
+					nos.addNode(host);
+					vmIdToNode.put(vm.getId(), host);
+
+					System.out.println("✅ VM " + vm.getName() + " (ID: " + vm.getId() + ") instanciée sur " +
+							dc.getVmAllocationPolicy().getHost(vm).getId());
+				}
+			}
+
+			// Ajouter les flows dans le NOS
+			// Après avoir ajouté tous tes Node (SimpleNode) :
+			for (FlowConfig flow : parser.getArcList()) {
+				nos.addFlow(flow);
+				Node src = vmIdToNode.get(flow.getSrcId());
+				Node dst = vmIdToNode.get(flow.getDstId());
+				if (src == null) {
+					System.err.println("⚠️ Nœud introuvable pour l'ID : " + flow.getSrcId() + " (VM non allouée ?)");
+					continue;
+				}
+				if (dst == null) {
+					System.err.println("⚠️ Nœud introuvable pour l'ID : " + flow.getDstId() + " (VM non allouée ?)");
+					continue;
+				}
+				System.out.println("DEBUG: liens entre " + src.getName() + " et " + dst.getName() + " = " +
+						nos.getLinks(src, dst).size());
+			}
+
+			nos.getPhysicalTopology().buildDefaultRouting();
+
+		}
+
+		// Stockage des mappings pour une utilisation ultérieure (pour le parsing des
+		// workloads)
+		this.vmNameIdMap = parser.getVmNameIdMap();
+		this.flowNameIdMap = parser.getFlowNameIdMap();
+		this.flowIdToBandwidthMap = parser.getFlowIdToBandwidthMap();
+
+		// Démarrer le déploiement de l'application dans chaque datacenter
+		for (String dcName : SDNBroker.datacenters.keySet()) {
+			SDNDatacenter dc = SDNBroker.datacenters.get(dcName);
+			NetworkOperatingSystem nos = dc.getNOS();
+			// Injection de la map des BW dans le NOS
+			nos.setFlowIdToBandwidthMap(parser.getFlowIdToBandwidthMap());
+			System.out.println("flowIdToBandwidthMap injecté dans le NOS de " + dcName);
+			nos.startDeployApplicatoin();
+		}
+
+		// Créer un objet contenant les mappings et envoyer l'ACK à l'utilisateur
+		Map<String, Object> mappings = new HashMap<>();
+		mappings.put("vmNameIdMap", this.vmNameIdMap);
+		mappings.put("flowNameIdMap", this.flowNameIdMap);
+		mappings.put("flowIdToBandwidthMap", this.flowIdToBandwidthMap);
+
+		send(userId, 0, CloudSimTagsSDN.APPLICATION_SUBMIT_ACK, mappings);
+	}
+
+	// public void processApplication(int userId, String vmsFileName) {
+	// System.out.println("📦 Processing application: " + vmsFileName);
+
+	// // Récupérer le datacenter par défaut
+	// SDNDatacenter defaultDC = SDNBroker.datacenters.values().iterator().next();
+
+	// // Parser la topologie virtuelle
+	// VirtualTopologyParser parser = new VirtualTopologyParser(defaultDC.getName(),
+	// vmsFileName, userId);
+
+	// // // Pour chaque datacenter enregistré, on ajoute les VMs définies dans le
+	// fichier de topologie virtuelle
+	// for (String dcName : SDNBroker.datacenters.keySet()) {
+	// SDNDatacenter dc = SDNBroker.datacenters.get(dcName);
+	// NetworkOperatingSystem nos = dc.getNOS();
+
+	// // Récupération de la liste des VMs pour le datacenter (selon le dcName)
+	// for (SDNVm vm : parser.getVmList(dcName)) {
+	// System.out.println("------ Ajout de la VM " + vm.getName() + " (ID: " +
+	// vm.getId() + ") au Datacenter " + dcName);
+	// //nos.addVm(vm);
+
+	// // On enregistre le mapping VM ID -> DataCenter
+	// SDNBroker.vmIdToDc.put(vm.getId(), dc);
+	// dc.getNOS().addVm(vm);
+	// // 🔥 Ajoute cette ligne pour remplir vmNameMap :
+	// vmNameMap.put(vm.getName(), vm);
+	// //vmNameIdMap.put(vm.getName(), vm.getId());
+	// }
+
+	// //Ajouter les flows dans le NOS
+	// for (FlowConfig flow : parser.getArcList()) {
+	// nos.addFlow(flow);
+	// }
+
+	// }
+
+	// // Stockage des mappings pour une utilisation ultérieure (dans le parsing des
+	// workloads)
+	// this.vmNameIdMap = parser.getVmNameIdMap();
+	// this.flowNameIdMap = parser.getFlowNameIdMap();
+	// this.flowIdToBandwidthMap = parser.getFlowIdToBandwidthMap();
+
+	// // Démarrage du déploiement de l'application dans chaque datacenter
+	// for (String dcName : SDNBroker.datacenters.keySet()) {
+	// SDNDatacenter dc = SDNBroker.datacenters.get(dcName);
+	// NetworkOperatingSystem nos = dc.getNOS();
+	// // Injection de la map des BW dans le NOS
+	// nos.setFlowIdToBandwidthMap(parser.getFlowIdToBandwidthMap());
+	// System.out.println("flowIdToBandwidthMap injecté dans le NOS de " + dcName);
+	// nos.startDeployApplicatoin();
+	// }
+	// // Ajouter les VMs au datacenter
+	// // for (String dcName : SDNBroker.datacenters.keySet()) {
+	// // SDNDatacenter dc = SDNBroker.datacenters.get(dcName);
+	// // NetworkOperatingSystem nos = dc.getNOS();
+
+	// // for (SDNVm vm : parser.getVmList(dcName)) {
+	// // nos.addVm(vm);
+	// // SDNBroker.vmIdToDc.put(vm.getId(), dc);
+	// // SDNBroker.globalVmDatacenterMap.put(vm.getId(), dc);
+	// // System.out.println("VM added to DC: " + vm.getName() + " (ID=" +
+	// vm.getId() + ")");
+
+	// // // Vérifier l'allocation de la VM à un hôte
+	// // Host host = dc.getVmAllocationPolicy().getHost(vm);
+	// // if (host != null) {
+	// // System.out.println("VM " + vm.getId() + " allocated to host " +
+	// host.getId());
+	// // } else {
+	// // System.err.println("Failed to allocate VM " + vm.getId() + " to any
+	// host.");
+	// // }
+	// // }
+	// // }
+
+	// // // Ajouter les flux réseau
+	// // for (FlowConfig flow : parser.getArcList()) {
+	// // defaultDC.getNOS().addFlow(flow);
+	// // }
+
+	// // Crée un objet qui contient les mappings
+	// Map<String, Object> mappings = new HashMap<>();
+	// mappings.put("vmNameIdMap", this.vmNameIdMap);
+	// mappings.put("flowNameIdMap", this.flowNameIdMap);
+	/* Safety counter for loop detection */
+	private double lastEventTime = -1;
+	private int sameTimeEventCount = 0;
+	private static final int MAX_SAME_TIME_EVENTS = 1000;
+
+	private void checkLoopSafety() {
+		double currentTime = CloudSim.clock();
+		if (currentTime == lastEventTime) {
+			sameTimeEventCount++;
+		} else {
+			lastEventTime = currentTime;
+			sameTimeEventCount = 0;
+		}
+
+		if (sameTimeEventCount > MAX_SAME_TIME_EVENTS) {
+			System.err.println(
+					"FATAL ERROR: Potential infinite loop detected at time " + currentTime + ". Stopping simulation.");
+			CloudSim.stopSimulation();
+			System.exit(-1);
+		}
+	}
+
+	public void printDebug() {
+		System.err.println(CloudSim.clock() + ": # of currently processing Cloudlets: " + this.requestsTable.size());
+	}
+
+	public void startMigrate() {
+		if (isMigrateEnabled) {
+			Log.printLine(CloudSim.clock() + ": Migration started..");
+
+			List<Map<String, Object>> migrationMap = getVmAllocationPolicy().optimizeAllocation(
+					getVmList());
+
+			if (migrationMap != null && migrationMap.size() > 0) {
+				migrationAttempted += migrationMap.size();
+
+				// Process cloudlets before migration because cloudlets are processed during
+				// migration process..
+				updateCloudletProcessing();
+				checkCloudletCompletion();
+
+				for (Map<String, Object> migrate : migrationMap) {
+					Vm vm = (Vm) migrate.get("vm");
+					Host targetHost = (Host) migrate.get("host");
+					// Host oldHost = vm.getHost();
+
+					Log.formatLine(
+							"%.2f: Migration of %s to %s is started",
+							CloudSim.clock(),
+							vm,
+							targetHost);
+
+					targetHost.addMigratingInVm(vm);
+
+					/** VM migration delay = RAM / bandwidth **/
+					// we use BW / 2 to model BW available for migration purposes, the other
+					// half of BW is for VM communication
+					// around 16 seconds for 1024 MB using 1 Gbit/s network
+					send(
+							getId(),
+							vm.getRam() / ((double) targetHost.getBw() / (2 * 8000)),
+							CloudSimTags.VM_MIGRATE,
+							migrate);
+				}
+			} else {
+				// Log.printLine(CloudSim.clock()+": No VM to migrate");
+			}
+		}
+	}
+
+	public NetworkOperatingSystem getNOS() {
+		return this.nos;
+	}
+
+	public String toString() {
+		return "SDNDataCenter:(NOS=" + nos.toString() + ")";
+	}
+
+	public void setWorkloadParsers(Map<Integer, WorkloadParser> workloadParsers) {
+		this.w1 = workloadParsers;
+	}
+
+	public void setWorkloadParser(WorkloadParser parser) {
+		this.workloadParser = parser;
+	}
+
+	private void markRequestAsFailed(Request req, Workload wl, String reason) {
+		logDebug(String.format("Request failed at time %.2f: src=%s, dest=%s, reason=%s",
+				org.cloudbus.cloudsim.core.CloudSim.clock(), wl.submitVmId, req.getDstHostName(), reason));
+
+		failedRequestsCount++;
+		failedRequests.put(reason, failedRequests.getOrDefault(reason, 0) + 1);
+
+		send(req.getUserId(), 0, org.cloudbus.cloudsim.sdn.CloudSimTagsSDN.WORKLOAD_FAILED, wl);
+	}
+}

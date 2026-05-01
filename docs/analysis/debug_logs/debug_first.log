@@ -1,0 +1,8 @@
+? Dataset directory: dataset-redundant/
+? Output: results/2026-03-10/dataset-redundant/experiment_LFF_First_Priority_01-09-29/
+Data center infrastructure (Physical Topology) : dataset-redundant/physical.json
+Virtual Machine and Network requests (Virtual Topology) : dataset-redundant/virtual.json
+Workloads: 
+ printArguments method :  dataset-redundant/workload.csv
+Starting CloudSim SDN...
+Initialising...

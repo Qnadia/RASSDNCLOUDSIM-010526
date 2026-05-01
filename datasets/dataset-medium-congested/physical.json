@@ -1,0 +1,688 @@
+{
+    "nodes": [
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_0",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_1",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_2",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_3",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_4",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_5",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_6",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_7",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_8",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_9",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_10",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "ram": 32768,
+            "pes": 16,
+            "name": "h_11",
+            "bw": 1000000000,
+            "mips": 4000,
+            "type": "host",
+            "storage": 10000000
+        },
+        {
+            "iops": 1000000000,
+            "name": "core0",
+            "bw": 1000000000,
+            "type": "core"
+        },
+        {
+            "iops": 1000000000,
+            "name": "core1",
+            "bw": 1000000000,
+            "type": "core"
+        },
+        {
+            "iops": 1000000000,
+            "name": "agg0",
+            "bw": 500000000,
+            "type": "aggregate"
+        },
+        {
+            "iops": 1000000000,
+            "name": "agg1",
+            "bw": 500000000,
+            "type": "aggregate"
+        },
+        {
+            "iops": 1000000000,
+            "name": "agg2",
+            "bw": 500000000,
+            "type": "aggregate"
+        },
+        {
+            "iops": 1000000000,
+            "name": "agg3",
+            "bw": 500000000,
+            "type": "aggregate"
+        },
+        {
+            "iops": 1000000000,
+            "name": "edge0",
+            "bw": 200000000,
+            "type": "edge"
+        },
+        {
+            "iops": 1000000000,
+            "name": "edge1",
+            "bw": 200000000,
+            "type": "edge"
+        },
+        {
+            "iops": 1000000000,
+            "name": "edge2",
+            "bw": 200000000,
+            "type": "edge"
+        },
+        {
+            "iops": 1000000000,
+            "name": "edge3",
+            "bw": 200000000,
+            "type": "edge"
+        },
+        {
+            "iops": 1000000000,
+            "name": "edge4",
+            "bw": 200000000,
+            "type": "edge"
+        },
+        {
+            "iops": 1000000000,
+            "name": "edge5",
+            "bw": 200000000,
+            "type": "edge"
+        }
+    ],
+    "links": [
+        {
+            "source": "core0",
+            "destination": "agg0",
+            "upBW": 500000000,
+            "latency": 0.05,
+            "distance": 500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg0",
+            "destination": "core0",
+            "upBW": 500000000,
+            "latency": 0.05,
+            "distance": 500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core0",
+            "destination": "agg1",
+            "upBW": 300000000,
+            "latency": 0.1,
+            "distance": 1000,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg1",
+            "destination": "core0",
+            "upBW": 300000000,
+            "latency": 0.1,
+            "distance": 1000,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core0",
+            "destination": "agg2",
+            "upBW": 400000000,
+            "latency": 0.07,
+            "distance": 700,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg2",
+            "destination": "core0",
+            "upBW": 400000000,
+            "latency": 0.07,
+            "distance": 700,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core0",
+            "destination": "agg3",
+            "upBW": 200000000,
+            "latency": 0.15,
+            "distance": 1500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg3",
+            "destination": "core0",
+            "upBW": 200000000,
+            "latency": 0.15,
+            "distance": 1500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core1",
+            "destination": "agg0",
+            "upBW": 200000000,
+            "latency": 0.12,
+            "distance": 1200,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg0",
+            "destination": "core1",
+            "upBW": 200000000,
+            "latency": 0.12,
+            "distance": 1200,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core1",
+            "destination": "agg1",
+            "upBW": 500000000,
+            "latency": 0.05,
+            "distance": 500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg1",
+            "destination": "core1",
+            "upBW": 500000000,
+            "latency": 0.05,
+            "distance": 500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core1",
+            "destination": "agg2",
+            "upBW": 300000000,
+            "latency": 0.08,
+            "distance": 800,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg2",
+            "destination": "core1",
+            "upBW": 300000000,
+            "latency": 0.08,
+            "distance": 800,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "core1",
+            "destination": "agg3",
+            "upBW": 500000000,
+            "latency": 0.05,
+            "distance": 500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg3",
+            "destination": "core1",
+            "upBW": 500000000,
+            "latency": 0.05,
+            "distance": 500,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg0",
+            "destination": "edge0",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge0",
+            "destination": "agg0",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg0",
+            "destination": "edge1",
+            "upBW": 150000000,
+            "latency": 0.08,
+            "distance": 80,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge1",
+            "destination": "agg0",
+            "upBW": 150000000,
+            "latency": 0.08,
+            "distance": 80,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg1",
+            "destination": "edge1",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge1",
+            "destination": "agg1",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg1",
+            "destination": "edge2",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge2",
+            "destination": "agg1",
+            "upBW": 100000000,
+            "latency": 0.1,
+            "distance": 100,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg2",
+            "destination": "edge2",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge2",
+            "destination": "agg2",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg2",
+            "destination": "edge3",
+            "upBW": 150000000,
+            "latency": 0.07,
+            "distance": 70,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge3",
+            "destination": "agg2",
+            "upBW": 150000000,
+            "latency": 0.07,
+            "distance": 70,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg3",
+            "destination": "edge4",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge4",
+            "destination": "agg3",
+            "upBW": 200000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg3",
+            "destination": "edge5",
+            "upBW": 100000000,
+            "latency": 0.12,
+            "distance": 120,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge5",
+            "destination": "agg3",
+            "upBW": 100000000,
+            "latency": 0.12,
+            "distance": 120,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge0",
+            "destination": "h_0",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge0",
+            "destination": "h_1",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge1",
+            "destination": "h_2",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge1",
+            "destination": "h_3",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge2",
+            "destination": "h_4",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge2",
+            "destination": "h_5",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge3",
+            "destination": "h_6",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge3",
+            "destination": "h_7",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge4",
+            "destination": "h_8",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge4",
+            "destination": "h_9",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge5",
+            "destination": "h_10",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "edge5",
+            "destination": "h_11",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_9",
+            "destination": "edge4",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_8",
+            "destination": "edge4",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_2",
+            "destination": "edge1",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_3",
+            "destination": "edge1",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_5",
+            "destination": "edge2",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_11",
+            "destination": "edge5",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_0",
+            "destination": "edge0",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_6",
+            "destination": "edge3",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_10",
+            "destination": "edge5",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_1",
+            "destination": "edge0",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_4",
+            "destination": "edge2",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "h_7",
+            "destination": "edge3",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 5,
+            "refractiveIndex": 1.46
+        },
+        {
+            "source": "agg0",
+            "name": "l_agg0_edge0_slow",
+            "destination": "edge0",
+            "upBW": 10000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge0",
+            "name": "l_edge0_agg0_slow",
+            "destination": "agg0",
+            "upBW": 10000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg2",
+            "name": "l_agg2_edge2_slow",
+            "destination": "edge2",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge2",
+            "name": "l_edge2_agg2_slow",
+            "destination": "agg2",
+            "upBW": 100000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "agg3",
+            "name": "l_agg3_edge4_slow",
+            "destination": "edge4",
+            "upBW": 50000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        },
+        {
+            "source": "edge4",
+            "name": "l_edge4_agg3_slow",
+            "destination": "agg3",
+            "upBW": 50000000,
+            "latency": 0.05,
+            "distance": 50,
+            "refractiveIndex": 1.468
+        }
+    ]
+}

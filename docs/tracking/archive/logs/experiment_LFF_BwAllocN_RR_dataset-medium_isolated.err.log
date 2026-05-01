@@ -1,0 +1,404 @@
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #32 (db2) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM db2 (ID: 32)
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #31 (db1) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM db1 (ID: 31)
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #38 (svc3) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM svc3 (ID: 38)
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #37 (svc2) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM svc2 (ID: 37)
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #33 (db3) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM db3 (ID: 33)
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #36 (svc1) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM svc1 (ID: 36)
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+not enough BW
+Cannot assign this VM(VM #30 (db0) in (null)) to any host. NumHosts=12
+? Échec de l'allocation de la VM db0 (ID: 30)
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 24
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 24
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 30
+?? Nœud introuvable pour l'ID : 30 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 31
+?? Nœud introuvable pour l'ID : 31 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 31
+?? Nœud introuvable pour l'ID : 31 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 32
+?? Nœud introuvable pour l'ID : 32 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 32
+?? Nœud introuvable pour l'ID : 32 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 33
+?? Nœud introuvable pour l'ID : 33 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 33
+?? Nœud introuvable pour l'ID : 33 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 34
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 34
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 30
+?? Nœud introuvable pour l'ID : 30 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 30
+? Nœud introuvable pour l'ID : 25
+?? Nœud introuvable pour l'ID : 30 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 30
+? Nœud introuvable pour l'ID : 26
+?? Nœud introuvable pour l'ID : 30 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 31
+? Nœud introuvable pour l'ID : 26
+?? Nœud introuvable pour l'ID : 31 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 31
+? Nœud introuvable pour l'ID : 27
+?? Nœud introuvable pour l'ID : 31 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 32
+? Nœud introuvable pour l'ID : 27
+?? Nœud introuvable pour l'ID : 32 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 32
+? Nœud introuvable pour l'ID : 28
+?? Nœud introuvable pour l'ID : 32 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 33
+? Nœud introuvable pour l'ID : 28
+?? Nœud introuvable pour l'ID : 33 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 33
+? Nœud introuvable pour l'ID : 29
+?? Nœud introuvable pour l'ID : 33 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 34
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 34
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 24
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 24
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 35
+? Nœud introuvable pour l'ID : 26
+? Nœud introuvable pour l'ID : 36
+?? Nœud introuvable pour l'ID : 36 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 27
+? Nœud introuvable pour l'ID : 37
+?? Nœud introuvable pour l'ID : 37 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 28
+? Nœud introuvable pour l'ID : 38
+?? Nœud introuvable pour l'ID : 38 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 29
+? Nœud introuvable pour l'ID : 39
+? Nœud introuvable pour l'ID : 35
+? Nœud introuvable pour l'ID : 25
+? Nœud introuvable pour l'ID : 36
+? Nœud introuvable pour l'ID : 26
+?? Nœud introuvable pour l'ID : 36 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 37
+? Nœud introuvable pour l'ID : 27
+?? Nœud introuvable pour l'ID : 37 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 38
+? Nœud introuvable pour l'ID : 28
+?? Nœud introuvable pour l'ID : 38 (VM non allouée ?)
+? Nœud introuvable pour l'ID : 39
+? Nœud introuvable pour l'ID : 29
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 12
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 20
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 8
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 14
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 1
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 2
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 7
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 13
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 16
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 17
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 22
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 19
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 0
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 4
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 5
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 11
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 18
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 3
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 9
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 10
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 15
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 6
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 21
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 39
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 47
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 41
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 23
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 26
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 29
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 30
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 36
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 42
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 44
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 50
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 35
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 43
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 46
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 49
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 31
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 28
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 32
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 24
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 27
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 34
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 25
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 38
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 45
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 48
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 33
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 37
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 40
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 65
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 66
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 68
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 63
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 51
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 53
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 61
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 72
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 69
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 59
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 62
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 55
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 56
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 58
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 60
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 64
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 52
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 54
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 57
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 70
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 71
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 67
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 84
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 89
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 95
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 86
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 96
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 85
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 94
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 73
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 74
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 76
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 80
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 88
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 92
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 81
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 79
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 87
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 97
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 75
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 83
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 90
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 93
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 78
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 82
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 91
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 77
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 101
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 102
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 100
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 106
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 110
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 119
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 120
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 121
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 99
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 103
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 112
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 122
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 105
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 108
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 116
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 117
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 118
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 98
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 114
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 104
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 107
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 113
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 115
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 109
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 111
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 124
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 125
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 133
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 141
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 143
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 139
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 127
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 132
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 135
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 144
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 145
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 123
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 140
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 142
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 130
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 134
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 129
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 137
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 128
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 138
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 131
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 136
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 126
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 168
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 146
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 158
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 150
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 151
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 152
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 156
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 160
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 164
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 166
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 170
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 163
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 165
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 149
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 154
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 157
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 162
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 155
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 147
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 148
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 153
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 159
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 161
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 167
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 169
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 171
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 186
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 173
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 183
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 195
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 176
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 177
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 182
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 185
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 188
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 189
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 174
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 187
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 190
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 192
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 194
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 197
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 179
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 181
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 191
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 172
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 175
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 178
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 184
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 193
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 196
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 180
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 198
+? [checkCloudletCompletion] Aucune Request trouvée pour Cloudlet ID 199

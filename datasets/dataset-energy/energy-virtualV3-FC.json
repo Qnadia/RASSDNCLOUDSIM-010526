@@ -1,0 +1,13 @@
+{
+  "nodes": [
+    {"endtime":50.0,"starttime":0.0,"ram":512,"pes":2,"name":"web0","bw":500000000,"mips":2000,"type":"vm","size":1000}, 
+    {"endtime":50.0,"starttime":0.0,"ram":512,"pes":8,"name":"app0","bw":500000000,"mips":1500,"type":"vm","size":1000}, 
+    {"endtime":50.0,"starttime":0.0,"ram":512,"pes":8,"name":"db0","bw":500000000,"mips":2400,"type":"vm","size":1000}   
+  ],
+  "links": [
+    {"source":"web0","name":"link_web0_app0","bandwidth":200000000,"destination":"app0"}, 
+    {"source":"app0","name":"link_app0_web0","bandwidth":100000000,"destination":"web0"}, 
+    {"source":"app0","name":"link_app0_db0","bandwidth":100000000,"destination":"db0"}, 
+    {"source":"db0","name":"link_db0_app0","bandwidth":200000000,"destination":"app0"}  
+  ]
+}

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.cloudbus</groupId>
+    <artifactId>cloudsimsdn</artifactId>
+    <version>1.0</version>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.7.0</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <includes>
+                        <include>**/*.java</include>
+                    </includes>
+                    <excludes>
+                        <!-- overbooking subpackage has unresolvable dependencies -->
+                        <exclude>**/overbooking/**</exclude>
+                        <!-- these NOS variants reference missing types -->
+                        <exclude>**/NetworkOperatingSystemDeployRandom.java</exclude>
+                        <exclude>**/NetworkOperatingSystemGroupAware.java</exclude>
+                        <!-- topogenerators and SFC experiment starters reference deleted sfc package -->
+                        <exclude>**/topogenerators/**</exclude>
+                        <exclude>**/StartExperimentSFC.java</exclude>
+                        <exclude>**/StartExperimentSFCEdge.java</exclude>
+                        <exclude>**/StartExperimentOverbooking.java</exclude>
+                        <exclude>**/StartExperimentQOS.java</exclude>
+                        <!-- non-SSLAB example files with broken references -->
+                        <exclude>**/example/SimpleExampleSelectLinkBandwidthV2.java</exclude>
+                        <exclude>**/example/SimpleExampleSelectLinkBandwidthV2Group.java</exclude>
+                        <exclude>**/example/SimpleExampleSelectLinkBandwidthV3.java</exclude>
+                        <exclude>**/example/SimpleExampleSelectLinkBandwidthV3sansSJF.java</exclude>
+                        <exclude>**/example/SimpleExampleSelectLinkBandwidthVMAllocPol.java</exclude>
+                        <exclude>**/example/SimpleExampleInterCloud.java</exclude>
+                        <exclude>**/example/SimpleExampleBWVF.java</exclude>
+                        <exclude>**/example/SimpleExample.java</exclude>
+                        <!-- SSLAB variant with broken WorkloadParser/processWorkloadParser -->
+                        <exclude>**/SSLAB/SimpleExampleSelectLinkBandwidthSJF.java</exclude>
+                        <!-- Policy with broken interface impl -->
+                        <exclude>**/selectlink/LinkSelectionPolicyFlowNumbers.java</exclude>
+                        <exclude>**/selectlink/LinkSelectionPolicyFlowCapacity.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <!-- Adds dependencies to classpath into the manifest file inside the jar !-->
+                            <addClasspath>true</addClasspath>
+
+                            <!-- Defines that the dependencies will follow the same
+                             hierarchical directory structure of a maven repository !-->
+                            <classpathLayoutType>repository</classpathLayoutType>
+
+                            <!-- Defines the root folder where the dependencies are. In this case
+                             is the the root of the local maven repository. !-->
+                            <classpathPrefix>${user.home}/.m2/repository/</classpathPrefix>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Creates a "uber jar" that includes all external dependencies
+            inside it. By this way, the jar can be run directly in any
+            computer with a regular JVM installed. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- Keep the original jar file and generate a new shaded jar (the uber jar) -->
+                    <shadedArtifactAttached>true</shadedArtifactAttached>
+                    <!-- The suffix to add to the shaded jar -->
+                    <shadedClassifierName>with-dependencies</shadedClassifierName>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <configuration>
+                    <mainClass>org.cloudbus.cloudsim.sdn.example.SSLAB.SimpleExampleSelectLinkBandwidth</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>17.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>3.6.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.cloudbus.cloudsim</groupId>
+            <artifactId>cloudsim</artifactId>
+            <version>4.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/cloudsim-4.0.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.10.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.3</version>
+        </dependency>
+
+
+    </dependencies>
+</project>

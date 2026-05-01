@@ -1,0 +1,471 @@
+package org.cloudbus.cloudsim.sdn.policies.selectlink;
+
+import java.util.*;
+import org.cloudbus.cloudsim.Log;
+import org.cloudbus.cloudsim.core.CloudSim;
+import org.cloudbus.cloudsim.sdn.Packet;
+import org.cloudbus.cloudsim.sdn.example.LogManager;
+import org.cloudbus.cloudsim.sdn.nos.NetworkOperatingSystem;
+import org.cloudbus.cloudsim.sdn.physicalcomponents.Link;
+import org.cloudbus.cloudsim.sdn.physicalcomponents.Node;
+
+public class LinkSelectionPolicyDynamicLatencyBw implements LinkSelectionPolicy {
+
+    private final Map<Node, List<Link>> networkTopology;
+    private final boolean enableDetailedLogging;
+
+    /** MAJ Nadia : Dproc_switch du dernier chemin optimal sélectionné (secondes) */
+    private double lastBestSwitchLatency = 0.0;
+
+    public double getLastBestSwitchLatency() {
+        return lastBestSwitchLatency;
+    }
+
+    private NetworkOperatingSystem nos;
+
+    public void setNetworkOperatingSystem(NetworkOperatingSystem nos) {
+        this.nos = nos;
+    }
+
+    public LinkSelectionPolicyDynamicLatencyBw(Map<Node, List<Link>> networkTopology) {
+        this(networkTopology, false);
+    }
+
+    public LinkSelectionPolicyDynamicLatencyBw(Map<Node, List<Link>> networkTopology, boolean enableDetailedLogging) {
+        this.networkTopology = networkTopology;
+        this.enableDetailedLogging = enableDetailedLogging;
+        Log.printLine("Network topology loaded with " + networkTopology.size() + " nodes.");
+    }
+
+    @Override
+    public Link selectLink(List<Link> links, int flowId, Node src, Node dest, Node prevNode) {
+        if (links.isEmpty()) {
+            Log.printLine(CloudSim.clock() + ": No available links!");
+            return null;
+        }
+
+        Packet pkt = null;
+        if (prevNode instanceof Packet) {
+            pkt = (Packet) prevNode;
+        }
+
+        List<Link> bestPath = findBestPath(src, dest, pkt);
+
+        return bestPath != null && !bestPath.isEmpty() ? bestPath.get(0) : null;
+    }
+
+    public List<Link> findBestPath(Node src, Node dest, Packet pkt) {
+        // ⚠️ Cas local : pas besoin de chemin réel
+        if (src.equals(dest)) {
+            double requiredBw = pkt != null ? (pkt.getSize() * 8.0) / 1.0 : 1.5e9;
+            List<Link> localPath = new ArrayList<>();
+            localPath.add(new Link(src, dest, requiredBw, 0.0));
+            return localPath;
+        }
+
+        if (pkt == null) {
+            System.err.println("❌ [findBestPath] Packet is null. Cannot calculate path from " + src.getName() + " to "
+                    + dest.getName());
+            return Collections.emptyList(); // Court-circuiter complètement
+        }
+
+        if (enableDetailedLogging) {
+            Log.printLine("\n=== Searching best path from " + src.getName() + " to " + dest.getName() + " ===");
+        }
+
+        if (src.equals(dest)) {
+            return Collections.emptyList();
+        }
+
+        List<List<Link>> allPaths = findAllPaths(src, dest);
+        List<Link> bestPath = null;
+        double minLatency = Double.POSITIVE_INFINITY;
+        double maxBandwidth = 0;
+        Map<String, PathMetrics> pathLogs = new LinkedHashMap<>();
+
+        for (List<Link> path : allPaths) {
+            PathMetrics metrics = calculatePathMetrics(path, pkt, src);
+            StringBuilder pathId = new StringBuilder(src.getName());
+            Node current = src;
+            for (Link link : path) {
+                current = link.getOtherNode(current);
+                pathId.append("->").append(current.getName());
+            }
+            pathLogs.put(pathId.toString(), metrics);
+
+            if (isBetterPath(metrics, minLatency, maxBandwidth)) {
+                minLatency = metrics.totalLatency;
+                maxBandwidth = metrics.minBandwidth;
+                bestPath = path;
+                lastBestSwitchLatency = metrics.totalSwitchLatency; // Dproc_switch du chemin retenu
+                // MAJ Nadia : Injection immédiate dans la Request
+                if (pkt != null && pkt.getPayload() instanceof org.cloudbus.cloudsim.sdn.workload.Request) {
+                    org.cloudbus.cloudsim.sdn.workload.Request req = (org.cloudbus.cloudsim.sdn.workload.Request) pkt
+                            .getPayload();
+                    req.setSwitchProcessingDelay(metrics.totalSwitchLatency);
+                }
+            }
+        }
+
+        // 🔍 Log tous les chemins avec "true" uniquement pour le meilleur
+        for (Map.Entry<String, PathMetrics> entry : pathLogs.entrySet()) {
+            String pathId = entry.getKey();
+            PathMetrics metrics = entry.getValue();
+            boolean isSelected = bestPath != null && pathId.equals(buildPathId(bestPath, src));
+            LogManager.log("path_latency.csv", LogManager.formatData(
+                    CloudSim.clock(),
+                    src.getName(),
+                    dest.getName(),
+                    pathId,
+                    String.format("%.4f", metrics.minBandwidth / 1e6),
+                    // String.format("%.2f", metrics.totalUsedBandwidth),
+                    // String.format("%.2f", metrics.avgUtilPercent),
+                    String.format("%.4f", metrics.totalLatency * 1000),
+                    isSelected));
+
+        }
+
+        return bestPath;
+    }
+
+    private String buildPathId(List<Link> path, Node start) {
+        StringBuilder sb = new StringBuilder(start.getName());
+        Node current = start;
+        for (Link link : path) {
+            current = link.getOtherNode(current);
+            sb.append("->").append(current.getName());
+        }
+        return sb.toString();
+    }
+
+    private PathMetrics calculatePathMetrics(List<Link> path, Packet pkt, Node src) {
+        PathMetrics metrics = new PathMetrics();
+        // if (pkt == null) {
+        // System.err.println("❌ [calculatePathMetrics] Packet is null, skipping path
+        // calculation.");
+        // metrics.totalLatency = Double.MAX_VALUE;
+        // metrics.minBandwidth = 0;
+        // return metrics;
+        // }
+        long bits = pkt.getSize() * 8L;
+        metrics.minBandwidth = Double.POSITIVE_INFINITY;
+        double totalUtilPercent = 0;
+        double totalUsedBw = 0;
+
+        for (Link link : path) {
+            double bw = link.getBw(src);
+            double usedBw = link.getUsedBw(src); // MAJ Nadia : BW actuellement utilisée
+
+            metrics.minBandwidth = Math.min(metrics.minBandwidth, bw);
+
+            double linkLatency = link.getLatency() * 0.001; // Dproc_switch (s)
+            double propDelay = link.calculateDynamicPropagationDelay(); // Dprop (s)
+            double txDelay = bits / (bw * link.getEfficiency()); // Dtrans (s)
+
+            // MAJ Nadia : Estimation de Dqueue via modèle M/M/1
+            double dqueueEst = 0;
+            if (bw > 0) {
+                double rho = Math.min(usedBw / bw, 0.99); // taux utilisation [0, 0.99]
+                if (rho > 0) {
+                    double mu = bw / Math.max(pkt.getSize(), 1); // débit service (paquets/s)
+                    dqueueEst = rho / (mu * (1.0 - rho)); // E[Dqueue] en secondes
+                }
+            }
+
+            metrics.totalLatency += linkLatency + propDelay + txDelay + dqueueEst;
+            metrics.totalSwitchLatency += linkLatency; // accumul Dproc_switch
+            src = link.getOtherNode(src);
+        }
+
+        // int hopCount = path.size();
+        // metrics.totalUsedBandwidth = hopCount > 0 ? totalUsedBw / hopCount : 0;
+        // metrics.avgUtilPercent = hopCount > 0 ? totalUtilPercent / hopCount : 0;
+
+        return metrics;
+    }
+
+    private boolean isBetterPath(PathMetrics metrics, double currentMinLatency, double currentMaxBandwidth) {
+        return metrics.totalLatency < currentMinLatency - 1e-6 ||
+                (Math.abs(metrics.totalLatency - currentMinLatency) < 1e-6 &&
+                        metrics.minBandwidth > currentMaxBandwidth + 1e-6);
+    }
+
+    private void logPathDetails(List<Link> path, PathMetrics metrics, Node src) {
+        Log.printLine(String.format(
+                "Path %s | Latency: %.3f ms, Bandwidth: %.1f Mbps",
+                formatPath(path, src),
+                metrics.totalLatency * 1000,
+                metrics.minBandwidth / 1e6));
+    }
+
+    private void logSelectedPath(List<Link> path, double latency, double bandwidth, Packet pkt, Node src) {
+        Log.printLine("\n=== Selected Best Path ===");
+        Log.printLine(String.format(
+                "Total Latency: %.3f ms | Min Bandwidth: %.1f Mbps",
+                latency * 1000,
+                bandwidth / 1e6));
+
+        Log.printLine("Detailed path:");
+        for (Link link : path) {
+            double bw = link.getBw(src);
+            double propDelay = link.calculateDynamicPropagationDelay() / 1000;
+            double txDelay = (pkt.getSize() * 8.0) / (bw * link.getEfficiency());
+
+            Log.printLine(String.format(
+                    "  %s → %s | BW: %.1f Mbps | Latency: %.3f ms (Prop: %.3f ms + Tx: %.3f ms)",
+                    link.getHighOrder().getName(),
+                    link.getLowOrder().getName(),
+                    bw / 1e6,
+                    (link.getLatency() + propDelay + txDelay) * 1000,
+                    propDelay * 1000,
+                    txDelay * 1000));
+
+            src = link.getOtherNode(src);
+        }
+    }
+
+    private String formatPath(List<Link> path, Node start) {
+        StringBuilder sb = new StringBuilder(start.getName());
+        Node current = start;
+
+        for (Link link : path) {
+            current = link.getOtherNode(current);
+            sb.append(" → ").append(current.getName());
+        }
+
+        return sb.toString();
+    }
+
+    private List<List<Link>> findAllPaths(Node source, Node destination) {
+        List<List<Link>> allPaths = new ArrayList<>();
+        dfs(source, destination, new HashSet<>(), new ArrayList<>(), allPaths);
+        return allPaths;
+    }
+
+    private void dfs(Node current, Node destination, Set<Node> visited, List<Link> path, List<List<Link>> allPaths) {
+        if (current.equals(destination)) {
+            allPaths.add(new ArrayList<>(path));
+            return;
+        }
+        visited.add(current);
+        for (Link link : networkTopology.getOrDefault(current, Collections.emptyList())) {
+            Node next = link.getOtherNode(current);
+
+            // 🚫 Interdire les liens entre deux hôtes
+            if (isHost(current) && isHost(next)) {
+                continue;
+            }
+
+            if (!visited.contains(next)) {
+                path.add(link);
+                dfs(next, destination, visited, path, allPaths);
+                path.remove(path.size() - 1);
+            }
+        }
+        visited.remove(current);
+    }
+
+    private boolean isHost(Node node) {
+        return node.getName().startsWith("h_");
+    }
+
+    @Override
+    public boolean isDynamicRoutingEnabled() {
+        return true;
+    }
+
+    public double getPathLatency(List<Link> path, Packet pkt, Node src) {
+        return calculatePathMetrics(path, pkt, src).totalLatency;
+    }
+
+    private static class PathMetrics {
+        double totalLatency = 0;
+        double minBandwidth = 0;
+        double totalSwitchLatency = 0; // MAJ Nadia : Dproc_switch = somme des link.getLatency() du chemin
+        double totalUsedBandwidth;
+        double avgUtilPercent;
+    }
+
+    public double getMinBandwidth(List<Link> path) {
+        return path.stream()
+                .mapToDouble(Link::getBw)
+                .min()
+                .orElse(0);
+    }
+}
+
+// package org.cloudbus.cloudsim.sdn.policies.selectlink;
+
+// import java.util.*;
+// import org.cloudbus.cloudsim.Log;
+// import org.cloudbus.cloudsim.core.CloudSim;
+// import org.cloudbus.cloudsim.sdn.Packet;
+// import org.cloudbus.cloudsim.sdn.physicalcomponents.Link;
+// import org.cloudbus.cloudsim.sdn.physicalcomponents.Node;
+
+// public class LinkSelectionPolicyDynamicLatencyBw implements
+// LinkSelectionPolicy {
+
+// private final Map<Node, List<Link>> networkTopology;
+
+// public LinkSelectionPolicyDynamicLatencyBw(Map<Node, List<Link>>
+// networkTopology) {
+// this.networkTopology = networkTopology;
+// System.out.println("Network topology loaded with " + networkTopology.size() +
+// " nodes.");
+// }
+
+// @Override
+// public Link selectLink(List<Link> links, int flowId, Node src, Node dest,
+// Node prevNode) {
+// if (links.isEmpty()) {
+// Log.printLine(CloudSim.clock() + ": Aucun lien disponible !");
+// return null;
+// }
+
+// List<List<Link>> allPaths = findAllPaths(src, dest);
+// Link bestLink = null;
+// double minLatency = Double.MAX_VALUE;
+// double maxBw = Double.MIN_VALUE;
+
+// for (List<Link> path : allPaths) {
+// // Récupérer le Packet depuis prevNode (qui doit être un Packet, pas un Node)
+// Packet pkt = (Packet) prevNode;
+// double networkLatency = calculateTotalLatency(path, pkt, src);
+
+// double bw = getMinBandwidth(path);
+// if (networkLatency < minLatency
+// || (Math.abs(networkLatency - minLatency) < 1e-6 && bw > maxBw)) {
+// minLatency = networkLatency;
+// maxBw = bw;
+// bestLink = path.get(0);
+// }
+// }
+
+// Log.printLine(CloudSim.clock() + ": Lien sélectionné → Latence=" + minLatency
+// + " ms, BW=" + maxBw);
+// return bestLink;
+// }
+
+// private List<List<Link>> findAllPaths(Node source, Node destination) {
+// List<List<Link>> allPaths = new ArrayList<>();
+// dfs(source, destination, new HashSet<>(), new ArrayList<>(), allPaths);
+// return allPaths;
+// }
+
+// private void dfs(Node current, Node destination, Set<Node> visited,
+// List<Link> path, List<List<Link>> allPaths) {
+// if (current.equals(destination)) {
+// allPaths.add(new ArrayList<>(path));
+// return;
+// }
+// visited.add(current);
+// for (Link link : networkTopology.getOrDefault(current,
+// Collections.emptyList())) {
+// Node next = link.getOtherNode(current);
+// if (!visited.contains(next)) {
+// path.add(link);
+// dfs(next, destination, visited, path, allPaths);
+// path.remove(path.size() - 1);
+// }
+// }
+// visited.remove(current);
+// }
+
+// private double calculateTotalLatency(List<Link> path, Packet pkt, Node src) {
+// double total = 0;
+// long bits = pkt.getSize() * 8L;
+// for (Link link : path) {
+// total += link.calculateDynamicPropagationDelay();
+// total += bits / (link.getBw() * link.getEfficiency());
+// }
+// return total;
+// }
+
+// private double getMinBandwidth(List<Link> path) {
+// return path.stream()
+// .mapToDouble(l -> l.getBw(l.getLowOrder()))
+// .min().orElse(0);
+// }
+
+// @Override
+// public boolean isDynamicRoutingEnabled() {
+// return false;
+// }
+
+// /**
+// * Retourne le meilleur chemin (liste de liens) entre src et dest selon
+// latence réseau minimale
+// * puis bande passante maximale.
+// */
+// // public List<Link> findBestPath(Node src, Node dest, Packet pkt) {
+// // System.out.println("Find Best path from " + src + " to " + dest);
+// // List<List<Link>> allPaths = findAllPaths(src, dest);
+
+// // // Log all found paths
+// // System.out.println("Found " + allPaths.size() + " possible paths:");
+// // for (int i = 0; i < allPaths.size(); i++) {
+// // System.out.println("Path " + (i+1) + ": " + allPaths.get(i));
+// // }
+
+// // List<Link> bestPath = null;
+// // double minLatency = Double.MAX_VALUE;
+// // double maxBw = Double.MIN_VALUE;
+
+// // for (List<Link> path : allPaths) {
+// // double latency = calculateTotalLatency(path, pkt, src);
+// // double bw = getMinBandwidth(path);
+
+// // System.out.println("Evaluating path: " + path);
+// // System.out.println(" - Latency: " + latency + " ms");
+// // System.out.println(" - Min Bandwidth: " + bw + " Mbps");
+
+// // if (latency < minLatency || (Math.abs(latency - minLatency) < 1e-6 && bw >
+// maxBw)) {
+// // minLatency = latency;
+// // maxBw = bw;
+// // bestPath = path;
+// // System.out.println(" => NEW BEST PATH (Latency: " + latency + ",
+// Bandwidth: " + bw + ")");
+// // }
+// // }
+
+// // if (bestPath != null) {
+// // System.out.println("Selected best path: " + bestPath);
+// // System.out.println(" - Total Latency: " + minLatency + " ms");
+// // System.out.println(" - Min Bandwidth: " + maxBw + " Mbps");
+// // } else {
+// // System.out.println("No valid path found from " + src + " to " + dest);
+// // }
+
+// // return bestPath;
+// // }
+// public List<Link> findBestPath(Node src, Node dest, Packet pkt) {
+// System.out.println("Find Best bestpath");
+// List<List<Link>> allPaths = findAllPaths(src, dest);
+// List<Link> bestPath = null;
+// double minLatency = Double.MAX_VALUE;
+// double maxBw = Double.MIN_VALUE;
+
+// for (List<Link> path : allPaths) {
+// double latency = calculateTotalLatency(path, pkt, src);
+// double bw = getMinBandwidth(path);
+// if (latency < minLatency || (Math.abs(latency - minLatency) < 1e-6 && bw >
+// maxBw)) {
+// minLatency = latency;
+// maxBw = bw;
+// bestPath = path;
+// }
+
+// }
+// return bestPath;
+// }
+
+// /**
+// * Expose calculateTotalLatency pour usage externe.
+// */
+// public double getPathLatency(List<Link> path, Packet pkt, Node src) {
+// return calculateTotalLatency(path, pkt, src);
+// }
+
+// }
