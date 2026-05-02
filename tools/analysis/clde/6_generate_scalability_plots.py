@@ -188,7 +188,7 @@ def fig_scalability_metrics(df_all, plot_dir, datasets):
     for ext in ("png", "svg"):
         fig.savefig(f"{path}.{ext}", bbox_inches="tight", dpi=200)
     plt.close(fig)
-    print(f"  [scalability metrics] → {path}.png")
+    print(f"  [scalability metrics] -> {path}.png")
 
 
 def fig_relative_gain(df_all, plot_dir, datasets):
@@ -222,7 +222,7 @@ def fig_relative_gain(df_all, plot_dir, datasets):
     for ext in ("png", "svg"):
         fig.savefig(f"{path}.{ext}", bbox_inches="tight", dpi=200)
     plt.close(fig)
-    print(f"  [relative gain]       → {path}.png")
+    print(f"  [relative gain]       -> {path}.png")
 
 
 # ──────────────────────────────────────────────

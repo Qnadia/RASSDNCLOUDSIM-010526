@@ -105,8 +105,10 @@ def fig_energy_by_vm(df_e, plot_dir, ds_name):
     df_last = (df_e.sort_values("time")
                .groupby(["link_policy","vm_policy","wf_policy","host_id"])
                .last().reset_index())
-    df_sum = (df_last.groupby(["link_policy","vm_policy"])["energy"]
-              .sum().reset_index())
+    df_sum = (df_last.groupby(["link_policy","vm_policy","wf_policy"])["energy"]
+          .sum().reset_index()
+          .groupby(["link_policy","vm_policy"])["energy"]
+          .mean().reset_index())
     df_sum["vm_policy"] = pd.Categorical(df_sum["vm_policy"], VM_ORDER)
     df_sum = df_sum.sort_values("vm_policy")
 
@@ -220,7 +222,20 @@ def fig_host_utilization(df_util, plot_dir, ds_name):
 def fig_energy_vs_delay_scatter(df_e, df_pd, plot_dir, ds_name):
     if df_e is None or df_pd is None:
         return
-    df_e_agg = (df_e.groupby(["link_policy","vm_policy"])["energy"].sum().reset_index())
+
+    # ✅ CORRECTION : énergie cumulée → prendre last par host avant de sommer
+    df_e_last = (
+        df_e.sort_values("time")
+            .groupby(["link_policy", "vm_policy", "wf_policy", "host_id"])
+            .last()
+            .reset_index()
+    )
+    df_e_agg = (
+        df_e_last.groupby(["link_policy", "vm_policy"])["energy"]
+                 .mean()   # moyenne sur wf_policies pour avoir 1 point par (vm, link)
+                 .reset_index()
+    )
+
     df_d_agg = (df_pd.groupby(["link_policy","vm_policy"])["delay_ms"].mean().reset_index())
     df_merge = df_e_agg.merge(df_d_agg, on=["link_policy","vm_policy"])
 
@@ -317,25 +332,46 @@ def fig_wf_policy_impact(df_pd, plot_dir, ds_name):
 def fig_link_utilization(df_lu, plot_dir, ds_name):
     if df_lu is None or "utilization" not in df_lu.columns:
         return
-    # Average utilization per link_id grouped by link_policy
     if "link_id" not in df_lu.columns:
         return
-    df_avg = (df_lu.groupby(["link_policy","link_id"])["utilization"]
+    df_avg = (df_lu.groupby(["link_policy", "link_id"])["utilization"]
               .mean().reset_index())
-    fig, ax = plt.subplots(figsize=(max(12, len(df_avg["link_id"].unique())//2), 6))
-    sns.boxplot(data=df_avg, x="link_policy", y="utilization",
-                palette=PALETTE_LINK, ax=ax, width=0.5)
+    # Guard: need at least 2 valid rows per policy to draw a boxplot
+    df_valid = df_avg.dropna(subset=["utilization"])
+    if df_valid.shape[0] < 2:
+        print(f"  [fig_link_utilization] SKIP — not enough data ({df_valid.shape[0]} rows)")
+        return
+    fig, ax = plt.subplots(figsize=(max(10, len(df_valid["link_id"].unique()) // 2), 6))
+    for pol, color in PALETTE_LINK.items():
+        sub = df_valid[df_valid["link_policy"] == pol]
+        if sub.empty:
+            continue
+        ax.boxplot(sub["utilization"].values,
+                   positions=[list(PALETTE_LINK.keys()).index(pol)],
+                   widths=0.4,
+                   patch_artist=True,
+                   boxprops=dict(facecolor=color, alpha=0.75),
+                   medianprops=dict(color="black", linewidth=2),
+                   whiskerprops=dict(color=color),
+                   capprops=dict(color=color),
+                   flierprops=dict(markerfacecolor=color, markersize=4))
+    ax.set_xticks(range(len(PALETTE_LINK)))
+    ax.set_xticklabels(list(PALETTE_LINK.keys()))
     ax.set_title(f"Fig 11: Link Utilization Distribution — {ds_name}",
                  fontsize=13, fontweight="bold")
-    ax.set_xlabel("Link Selection Policy"); ax.set_ylabel("Link Utilization (%)")
+    ax.set_xlabel("Link Selection Policy")
+    ax.set_ylabel("Link Utilization (%)")
     save(fig, os.path.join(plot_dir, "fig11_link_utilization"))
 
 
 def fig_energy_timeseries(df_e, plot_dir, ds_name):
     if df_e is None or "time" not in df_e.columns:
         return
-    df_ts = (df_e.groupby(["time","link_policy"])["energy"]
-             .sum().reset_index())
+    df_ts = (df_e.sort_values("time")
+            .groupby(["link_policy","vm_policy","wf_policy","host_id","time"])
+            .last().reset_index()
+            .groupby(["time","link_policy"])["energy"]
+            .mean().reset_index())
     fig, ax = plt.subplots(figsize=(12, 6))
     for pol, grp in df_ts.groupby("link_policy"):
         ax.plot(grp["time"], grp["energy"], label=pol,
@@ -409,13 +445,94 @@ def fig_path_latency(df_path, plot_dir, ds_name):
         if col is None or col not in df_sel.columns:
             continue
         sns.boxplot(data=df_sel, x="link_policy", y=col,
-                    palette=PALETTE_LINK, ax=ax, width=0.5)
+                    hue="link_policy", palette=PALETTE_LINK, ax=ax, width=0.5, legend=False)
         ax.set_title(label, fontsize=11, fontweight="bold")
         ax.set_xlabel("Link Selection Policy"); ax.set_ylabel(label)
 
     fig.suptitle(f"Fig 15: Selected Path Quality — {ds_name}",
                  fontsize=13, fontweight="bold")
     save(fig, os.path.join(plot_dir, "fig15_path_quality"))
+
+
+def fig_cpu_ram_timeseries(df_util, plot_dir, ds_name):
+    """CPU + RAM utilization over time for each VM policy (mirrors cpu_ram_timeseries_lff.png)."""
+    if df_util is None or "time" not in df_util.columns:
+        return
+    rename = {"cpu_util": "CPU (%)", "ram_util": "RAM (%)"}
+    df_u = df_util.rename(columns=rename)
+    metrics = [m for m in ["CPU (%)", "RAM (%)"] if m in df_u.columns]
+    if not metrics:
+        return
+    for vm in df_u["vm_policy"].dropna().unique() if "vm_policy" in df_u.columns else ["all"]:
+        sub = df_u[df_u["vm_policy"] == vm] if "vm_policy" in df_u.columns else df_u
+        fig, axes = plt.subplots(1, len(metrics), figsize=(14, 5), sharey=False)
+        if len(metrics) == 1:
+            axes = [axes]
+        for ax, metric in zip(axes, metrics):
+            for pol, grp in sub.groupby("link_policy"):
+                ts = grp.groupby("time")[metric].mean()
+                ax.plot(ts.index, ts.values, label=pol,
+                        color=PALETTE_LINK.get(pol, "grey"), lw=2)
+            ax.set_title(metric, fontsize=11, fontweight="bold")
+            ax.set_xlabel("Simulation Time (s)")
+            ax.set_ylabel(metric)
+            ax.legend(fontsize=9)
+            ax.grid(True, alpha=0.3)
+        fig.suptitle(f"CPU & RAM Utilization over Time — {vm} — {ds_name}",
+                     fontsize=13, fontweight="bold")
+        safe_vm = str(vm).lower().replace(" ", "_")
+        save(fig, os.path.join(plot_dir, f"cpu_ram_timeseries_{safe_vm}"))
+
+
+def fig_scalability_intra(df_pd, df_e, plot_dir, ds_name):
+    """Mini scalability overview within a single dataset (mirrors scalability_analysis.png)."""
+    if df_pd is None and df_e is None:
+        return
+    metrics, labels, units = [], [], []
+    rows = []
+    for pol in ["First", "BLA"]:
+        rec = {"Policy": pol}
+        if df_pd is not None and "delay_ms" in df_pd.columns:
+            sub = df_pd[df_pd["link_policy"] == pol]
+            rec["Avg Delay (ms)"] = sub["delay_ms"].mean() if not sub.empty else np.nan
+            if "queue_delay_ms" in sub.columns:
+                rec["Avg Queue (ms)"] = sub["queue_delay_ms"].mean() if not sub.empty else np.nan
+        if df_e is not None and "energy" in df_e.columns:
+            sub = df_e[df_e["link_policy"] == pol]
+            if not sub.empty:
+                grp_cols = [c for c in ["vm_policy", "wf_policy", "host_id"] if c in sub.columns]
+                last = sub.sort_values("time").groupby(grp_cols).last() if grp_cols and "time" in sub.columns else sub
+                rec["Total Energy (Wh)"] = last["energy"].sum()
+        rows.append(rec)
+    df_sc = pd.DataFrame(rows)
+    plot_cols = [c for c in ["Avg Delay (ms)", "Avg Queue (ms)", "Total Energy (Wh)"] if c in df_sc.columns]
+    if not plot_cols:
+        return
+    fig, axes = plt.subplots(1, len(plot_cols), figsize=(6 * len(plot_cols), 6))
+    if len(plot_cols) == 1:
+        axes = [axes]
+    for ax, col in zip(axes, plot_cols):
+        colors = [PALETTE_LINK.get(p, "grey") for p in df_sc["Policy"]]
+        bars = ax.bar(df_sc["Policy"], df_sc[col], color=colors,
+                      edgecolor="black", alpha=0.88)
+        for bar, val in zip(bars, df_sc[col]):
+            if not np.isnan(val):
+                ax.annotate(f"{val:,.0f}",
+                            (bar.get_x() + bar.get_width() / 2, val),
+                            ha="center", va="bottom", fontsize=9, fontweight="bold")
+        # Gain annotation
+        f_v = df_sc[df_sc["Policy"] == "First"][col].values
+        b_v = df_sc[df_sc["Policy"] == "BLA"][col].values
+        if len(f_v) and len(b_v) and f_v[0] > 0 and not np.isnan(f_v[0]):
+            gain = (f_v[0] - b_v[0]) / f_v[0] * 100
+            sign = "−" if gain >= 0 else "+"
+            ax.set_title(f"{col}\nBLA gain: {sign}{abs(gain):.1f}%",
+                         fontsize=11, fontweight="bold")
+        else:
+            ax.set_title(col, fontsize=11, fontweight="bold")
+        ax.set_xlabel("Routing Policy")
+    fig.suptitle(f"Scalability Summary — {ds_name}", fontsize=14, fontweight="bold")
+    save(fig, os.path.join(plot_dir, "scalability_analysis"))
 
 
 # ──────────────────────────────────────────────
@@ -447,22 +564,27 @@ def generate_plots(results_dir):
         df_sla  = load(synthese_dir, "qos_violations.csv")
         df_path = load(synthese_dir, "path_latency_final.csv")
 
+        df_vm   = load(synthese_dir, "vm_utilization.csv")
+
         fns = [
-            (fig_energy_by_vm,           (df_e,  plot_dir, ds_name)),
-            (fig_delay_by_vm,            (df_pd, plot_dir, ds_name)),
-            (fig_cdf_delay,              (df_pd, plot_dir, ds_name)),
-            (fig_delay_components,       (df_pd, plot_dir, ds_name)),
-            (fig_boxplot_delay,          (df_pd, plot_dir, ds_name)),
-            (fig_host_utilization,       (df_util, plot_dir, ds_name)),
-            (fig_energy_vs_delay_scatter,(df_e, df_pd, plot_dir, ds_name)),
-            (fig_queue_delay_by_vm,      (df_pd, plot_dir, ds_name)),
-            (fig_bla_gain_summary,       (df_pd, df_e, plot_dir, ds_name)),
-            (fig_wf_policy_impact,       (df_pd, plot_dir, ds_name)),
-            (fig_link_utilization,       (df_lu, plot_dir, ds_name)),
-            (fig_energy_timeseries,      (df_e, plot_dir, ds_name)),
-            (fig_heatmap_delay,          (df_pd, plot_dir, ds_name)),
-            (fig_sla_violations,         (df_sla, plot_dir, ds_name)),
-            (fig_path_latency,           (df_path, plot_dir, ds_name)),
+            (fig_energy_by_vm,            (df_e,   plot_dir, ds_name)),
+            (fig_delay_by_vm,             (df_pd,  plot_dir, ds_name)),
+            (fig_cdf_delay,               (df_pd,  plot_dir, ds_name)),
+            (fig_delay_components,        (df_pd,  plot_dir, ds_name)),
+            (fig_boxplot_delay,           (df_pd,  plot_dir, ds_name)),
+            (fig_host_utilization,        (df_util, plot_dir, ds_name)),
+            (fig_energy_vs_delay_scatter, (df_e,  df_pd, plot_dir, ds_name)),
+            (fig_queue_delay_by_vm,       (df_pd,  plot_dir, ds_name)),
+            (fig_bla_gain_summary,        (df_pd, df_e, plot_dir, ds_name)),
+            (fig_wf_policy_impact,        (df_pd,  plot_dir, ds_name)),
+            (fig_link_utilization,        (df_lu,  plot_dir, ds_name)),
+            (fig_energy_timeseries,       (df_e,   plot_dir, ds_name)),
+            (fig_heatmap_delay,           (df_pd,  plot_dir, ds_name)),
+            (fig_sla_violations,          (df_sla, plot_dir, ds_name)),
+            (fig_path_latency,            (df_path, plot_dir, ds_name)),
+            # Figures additionnelles (align 2026-05-01-Ex)
+            (fig_cpu_ram_timeseries,      (df_util, plot_dir, ds_name)),
+            (fig_scalability_intra,       (df_pd, df_e, plot_dir, ds_name)),
         ]
 
         for fn, args in fns:
@@ -472,12 +594,37 @@ def generate_plots(results_dir):
             except Exception as e:
                 print(f"  [{fn.__name__}] SKIP — {e}")
 
-        print(f"  Figures → {plot_dir}/")
+        print(f"  Figures -> {plot_dir}/  ({len(fns)} generated)")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="RAS-SDNCloudSim — Scientific Plot Generator v2")
     parser.add_argument("results_dir", help="Root results directory")
+    parser.add_argument("--dataset", default=None,
+                        help="Run only for this dataset subfolder (e.g. dataset-large)")
     args = parser.parse_args()
-    generate_plots(args.results_dir)
+
+    if args.dataset:
+        # Restrict to a single dataset
+        import types
+        orig = generate_plots
+        target = args.dataset
+        def generate_plots_single(results_dir):
+            import os as _os
+            results_dir = str(results_dir)
+            ds_path = _os.path.join(results_dir, target)
+            synthese_dir = _os.path.join(ds_path, "synthese", "data")
+            plot_dir = _os.path.join(ds_path, "plot")
+            if not _os.path.exists(synthese_dir):
+                print(f"[ERR] synthese/data not found for {target}")
+                return
+            _os.makedirs(plot_dir, exist_ok=True)
+            # Delegate to full generator but only for this dataset
+            orig_listdir = _os.listdir
+            _os.listdir = lambda p: [target] if p == results_dir else orig_listdir(p)
+            orig(results_dir)
+            _os.listdir = orig_listdir
+        generate_plots_single(args.results_dir)
+    else:
+        generate_plots(args.results_dir)
