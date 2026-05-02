@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Config
-BASE_RESULTS_DIR = "results/2026-03-11/dataset-small"
+BASE_RESULTS_DIR = "results/2026-03-16/dataset-medium"
 OUTPUT_DIR = os.path.join(BASE_RESULTS_DIR, "analysis_plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

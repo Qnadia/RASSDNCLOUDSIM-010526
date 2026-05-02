@@ -1,46 +1,31 @@
-# IntelliJ IDEA
-*.iml
-.idea/
-
-# VS Code
-.vscode/
-
-# Java / Maven
-*.class
-*.out
+﻿# ── Java / Maven ──────────────────────────────
 target/
-
-# Package files
+*.class
 *.jar
-*.war
-*.ear
 
-# JVM crash logs
-hs_err_pid*
+# ── Python ────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.env
 
-# Logs
-logs/
-*.log
+# ── CSV résultats (trop lourds) ───────────────
+results/**/synthese/data/*.csv
+results/**/raw/**
+results/**/*.log
+results/**/consolidation_report*.csv
 
-# Experiment outputs
-results/*
-!results/2026-05-01/
+# ── Garder les figures et rapports ───────────
+!results/**/*.png
+!results/**/*.svg
+!results/**/*.md
 
-**/consolidated*.csv
+# ── IDE ───────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
 
-# Simulation result files
-*.csv
-!results/**/*.csv
-
-# Archives
-*.zip
-
-# Exclure tous les fichiers consolidated et GLOBAL_MASTER
-**/GLOBAL_MASTER_*.csv
-**/consolidated_*.csv
-**/*link_utilization*.csv
-
-# Untracked/Unwanted folders
-datasetsH/
-example-edge/
-example-intercloud/
+# ── OS ────────────────────────────────────────
+.DS_Store
+Thumbs.db

@@ -15,9 +15,13 @@ if (-not (Test-Path $CP_JAR)) {
 }
 
 # -- POLICY LISTS -----------------------------------------------------
-$VM_POLICIES       = @("Binpack", "Spread", "LWFF", "LWFFVD", "LFF", "MFF")
-$LINK_POLICIES     = @("DynLatBw", "Random", "BwAllocN", "First")
-$WORKLOAD_POLICIES = @("Priority", "SJF", "FCFS", "RR", "PSO")
+$VM_POLICIES       = @("MFF")
+$LINK_POLICIES     = @("BwAllocN", "First")
+$WORKLOAD_POLICIES = @("Priority", "SJF", "FCFS", "PSO")
+
+# $VM_POLICIES       = @( "LWFF", "LWFF", "MFF")
+# $LINK_POLICIES     = @("BwAllocN", "First")
+# $WORKLOAD_POLICIES = @("Priority", "SJF", "FCFS", "PSO")
 
 # -- SELECTION (Optionnel: décommentez pour un test rapide) -----------
 # $VM_POLICIES       = @("LFF", "Binpack")

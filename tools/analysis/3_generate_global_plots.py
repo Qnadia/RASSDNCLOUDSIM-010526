@@ -5,18 +5,19 @@ import seaborn as sns
 import argparse
 import numpy as np
 
-# Configuration Style Scientifique SSLAB
+# Configuration Style Scientifique SSLAB (Harmonized with CLDE)
 sns.set_theme(style="whitegrid")
 plt.rcParams.update({
-    'font.family': 'serif',
-    'axes.edgecolor': 'black',
-    'axes.linewidth': 1.5,
-    'grid.color': '#ddd',
-    'grid.linestyle': '--',
-    'grid.alpha': 0.7,
-    'legend.frameon': True,
-    'legend.fancybox': True,
-    'figure.autolayout': True
+    "font.family": "serif",
+    "axes.edgecolor": "black",
+    "axes.linewidth": 1.5,
+    "grid.color": "#ddd",
+    "grid.linestyle": "--",
+    "grid.alpha": 0.7,
+    "legend.frameon": True,
+    "legend.fancybox": True,
+    "figure.autolayout": True,
+    "figure.dpi": 200,
 })
 
 def generate_plots(results_dir):
@@ -28,6 +29,13 @@ def generate_plots(results_dir):
     palette_link = {"First": "#d62728", "BLA": "#1f77b4"}
     palette_vm = {"LFF": "#ff7f0e", "MFF": "#1f77b4", "LWFF": "#2ca02c"}
     
+    def annotate_bars(ax, fmt="{:.0f}", fontsize=7):
+        for patch in ax.patches:
+            h = patch.get_height()
+            if np.isnan(h) or h == 0: continue
+            ax.annotate(fmt.format(h), (patch.get_x() + patch.get_width()/2, h),
+                        ha='center', va='bottom', fontsize=fontsize, fontweight='bold')
+
     for ds_name in datasets:
         ds_path = os.path.join(results_dir, ds_name)
         synthese_dir = os.path.join(ds_path, "synthese")
@@ -60,30 +68,50 @@ def generate_plots(results_dir):
         # --- FIG 1: ENERGY ---
         if df_e is not None:
             df_last = df_e.sort_values("time").groupby(["link_policy", "vm_policy", "wf_policy", "host_id"]).last().reset_index()
-            df_sum = df_last.groupby(["link_policy", "vm_policy"])["energy"].sum().reset_index()
+            df_sum = (df_last.groupby(["link_policy", "vm_policy", "wf_policy"])["energy"]
+                    .sum().reset_index()
+                    .groupby(["link_policy", "vm_policy"])["energy"]
+                    .mean().reset_index())
             plt.figure(figsize=(10, 6))
-            sns.barplot(data=df_sum, x="vm_policy", y="energy", hue="link_policy", palette=palette_link)
+            ax = sns.barplot(data=df_sum, x="vm_policy", y="energy", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
+            annotate_bars(ax, fmt="{:.0f} Wh")
             plt.title("Fig 1: Consommation Énergétique Totale (Wh)", fontsize=14, fontweight='bold')
-            plt.savefig(os.path.join(plot_dir, "-fig1_energy.png"), dpi=300)
+            plt.savefig(os.path.join(plot_dir, "-fig1_energy.png"), dpi=200)
+            plt.close()
+
+            # FIG 1b: ENERGY ALL POLICIES (including WF)
+            df_sum_all = df_last.groupby(["link_policy", "group_label"])["energy"].sum().reset_index()
+            plt.figure(figsize=(14, 7))
+            ax = sns.barplot(data=df_sum_all, x="group_label", y="energy", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
+            annotate_bars(ax, fmt="{:.0f}")
+            plt.title("Fig 1b: Total Energy Consumption - All Policies (VM + WF)", fontsize=16, fontweight='bold')
+            plt.xlabel("Policy Combination (VM \\n WF)"); plt.ylabel("Total Energy (Wh)")
+            plt.xticks(rotation=45)
+            plt.savefig(os.path.join(plot_dir, "-fig1b_energy_all.png"), dpi=200)
             plt.close()
 
         # --- FIG 2 & 6: LATENCY ---
         if df_pd is not None:
+            df_fig2 = df_pd.copy()
+            df_fig2["delay_s"] = df_fig2["delay_ms"] / 1000.0
             plt.figure(figsize=(10, 6))
-            sns.barplot(data=df_pd, x="vm_policy", y="delay_ms", hue="link_policy", palette=palette_link)
-            plt.title("Fig 2: Délai Moyen des Paquets (ms)", fontsize=14, fontweight='bold')
-            plt.savefig(os.path.join(plot_dir, "-fig2_latency.png"), dpi=300)
-            plt.savefig(os.path.join(plot_dir, "-fig6_routing_latency.png"), dpi=300)
+            ax = sns.barplot(data=df_fig2, x="vm_policy", y="delay_s", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88, errorbar=None)
+            annotate_bars(ax, fmt="{:.3f} s")
+            plt.title("Fig 2: Average Packet Delay (s)", fontsize=14, fontweight='bold')
+            plt.ylabel("Delay (s)")
+            plt.savefig(os.path.join(plot_dir, "-fig2_latency.png"), dpi=200)
+            plt.savefig(os.path.join(plot_dir, "-fig6_routing_latency.png"), dpi=200)
             plt.close()
 
         # --- FIG 3 & 8: SLA ---
         if df_pd is not None:
             df_pd["sla_sev"] = df_pd["delay_ms"] / df_pd["proc_delay_ms"].replace(0, 1)
             plt.figure(figsize=(10, 6))
-            sns.barplot(data=df_pd, x="vm_policy", y="sla_sev", hue="link_policy", palette=palette_link)
+            ax = sns.barplot(data=df_pd, x="vm_policy", y="sla_sev", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
+            annotate_bars(ax)
             plt.title("Fig 3: Sévérité des Violations SLA", fontsize=14, fontweight='bold')
-            plt.savefig(os.path.join(plot_dir, "-fig3_sla.png"), dpi=300)
-            plt.savefig(os.path.join(plot_dir, "-fig8_routing_sla.png"), dpi=300)
+            plt.savefig(os.path.join(plot_dir, "-fig3_sla.png"), dpi=200)
+            plt.savefig(os.path.join(plot_dir, "-fig8_routing_sla.png"), dpi=200)
             plt.close()
 
         # --- FIG 4: CDF ---
@@ -91,38 +119,42 @@ def generate_plots(results_dir):
             plt.figure(figsize=(10, 6))
             for pol in sorted(df_pd['link_policy'].unique()):
                 subset = df_pd[df_pd['link_policy'] == pol]
-                sorted_d = np.sort(subset['delay_ms'])
+                sorted_d = np.sort(subset['delay_ms']) / 1000.0    # ms → secondes
                 y = np.arange(len(sorted_d)) / float(len(sorted_d))
                 plt.plot(sorted_d, y, label=pol, lw=2.5)
             plt.title("Fig 4: CDF du Délai des Paquets", fontsize=14, fontweight='bold')
-            plt.xlabel("Délai (ms)"); plt.ylabel("Probabilité Cumulative")
+            plt.xlabel("Delay (s)"); plt.ylabel("Cumulative Probability")
             plt.legend(); plt.grid(True, alpha=0.3)
             plt.savefig(os.path.join(plot_dir, "-fig4_packet_delay.png"), dpi=300)
             plt.close()
 
         # --- FIG 5: UTILIZATION ---
         if df_util is not None:
-            # Nettoyage des colonnes (certaines peuvent être nommées cpu_util ou cpu)
             rename_map = {"cpu_util": "CPU", "ram_util": "RAM", "bw_util": "BW", "cpu": "CPU", "ram": "RAM", "bw": "BW"}
             df_u = df_util.rename(columns=rename_map)
             metrics = [c for c in ["CPU", "RAM", "BW"] if c in df_u.columns]
             df_melt = df_u.melt(id_vars=["link_policy"], value_vars=metrics, var_name="Resource", value_name="Usage")
             df_melt["Usage"] *= 100
             plt.figure(figsize=(10, 6))
-            sns.barplot(data=df_melt, x="Resource", y="Usage", hue="link_policy", palette=palette_link)
+            ax = sns.barplot(data=df_melt, x="Resource", y="Usage", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
+            annotate_bars(ax, fmt="{:.1f}%")
             plt.title("Fig 5: Utilisation Moyenne des Ressources", fontsize=14, fontweight='bold')
             plt.ylabel("Utilisation (%)"); plt.ylim(0, 100)
-            plt.savefig(os.path.join(plot_dir, "-fig5_utilization.png"), dpi=300)
+            plt.savefig(os.path.join(plot_dir, "-fig5_utilization.png"), dpi=200)
             plt.close()
 
         # --- FIG 7: ROUTING ENERGY ---
         if df_e is not None:
             df_last = df_e.sort_values("time").groupby(["link_policy", "vm_policy", "wf_policy", "host_id"]).last().reset_index()
-            df_sum = df_last.groupby(["link_policy", "vm_policy"])["energy"].sum().reset_index()
+            df_sum = (df_last.groupby(["link_policy", "vm_policy", "wf_policy"])["energy"]
+                    .sum().reset_index()
+                    .groupby(["link_policy", "vm_policy"])["energy"]
+                    .mean().reset_index())
             plt.figure(figsize=(10, 6))
-            sns.barplot(data=df_sum, x="vm_policy", y="energy", hue="link_policy", palette=palette_link)
+            ax = sns.barplot(data=df_sum, x="vm_policy", y="energy", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
+            annotate_bars(ax, fmt="{:.0f} Wh")
             plt.title("Fig 7: Impact du Routage sur l'Énergie", fontsize=14, fontweight='bold')
-            plt.savefig(os.path.join(plot_dir, "-fig7_routing_energy.png"), dpi=300)
+            plt.savefig(os.path.join(plot_dir, "-fig7_routing_energy.png"), dpi=200)
             plt.close()
 
         # --- FIG 9: TRADEOFF ---
