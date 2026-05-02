@@ -68,7 +68,10 @@ def generate_plots(results_dir):
         # --- FIG 1: ENERGY ---
         if df_e is not None:
             df_last = df_e.sort_values("time").groupby(["link_policy", "vm_policy", "wf_policy", "host_id"]).last().reset_index()
-            df_sum = df_last.groupby(["link_policy", "vm_policy"])["energy"].sum().reset_index()
+            df_sum = (df_last.groupby(["link_policy", "vm_policy", "wf_policy"])["energy"]
+                    .sum().reset_index()
+                    .groupby(["link_policy", "vm_policy"])["energy"]
+                    .mean().reset_index())
             plt.figure(figsize=(10, 6))
             ax = sns.barplot(data=df_sum, x="vm_policy", y="energy", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
             annotate_bars(ax, fmt="{:.0f} Wh")
@@ -143,7 +146,10 @@ def generate_plots(results_dir):
         # --- FIG 7: ROUTING ENERGY ---
         if df_e is not None:
             df_last = df_e.sort_values("time").groupby(["link_policy", "vm_policy", "wf_policy", "host_id"]).last().reset_index()
-            df_sum = df_last.groupby(["link_policy", "vm_policy"])["energy"].sum().reset_index()
+            df_sum = (df_last.groupby(["link_policy", "vm_policy", "wf_policy"])["energy"]
+                    .sum().reset_index()
+                    .groupby(["link_policy", "vm_policy"])["energy"]
+                    .mean().reset_index())
             plt.figure(figsize=(10, 6))
             ax = sns.barplot(data=df_sum, x="vm_policy", y="energy", hue="link_policy", palette=palette_link, edgecolor="black", alpha=0.88)
             annotate_bars(ax, fmt="{:.0f} Wh")
