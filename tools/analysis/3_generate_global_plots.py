@@ -210,6 +210,80 @@ def generate_plots(results_dir):
             plt.title("Fig 10b: Équilibrage de Charge Réseau", fontsize=14, fontweight='bold')
             plt.savefig(os.path.join(plot_dir, "-fig10_load_balancing.png"), dpi=300)
             plt.close()
+        # --- FIG 14: NETWORK LATENCY PURE BY VM POLICY ---
+        df_path = load_csv("path_latency_final.csv")
+        if df_path is not None and "network_latency_ms" in df_path.columns:
+            VM_ORDER = ["MFF", "LWFF", "LFF"]
+
+            # Garder uniquement les chemins sélectionnés
+            sel_col = "selected" if "selected" in df_path.columns else None
+            df_sel = df_path[df_path[sel_col] == 1].copy() if sel_col else df_path.copy()
+
+            # Agréger par vm_policy + link_policy
+            grp = (df_sel.groupby(["vm_policy", "link_policy"])["network_latency_ms"]
+                   .mean().reset_index())
+            grp["vm_policy"] = pd.Categorical(grp["vm_policy"], VM_ORDER)
+            grp = grp.sort_values("vm_policy")
+
+            fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+            # ── Panel gauche : barres groupées ──────────────────────────────────
+            ax = axes[0]
+            sns.barplot(data=grp, x="vm_policy", y="network_latency_ms",
+                        hue="link_policy", palette=palette_link, ax=ax,
+                        order=VM_ORDER, edgecolor="black", alpha=0.88)
+
+            # Annotations valeurs sur les barres
+            for patch in ax.patches:
+                h = patch.get_height()
+                if h > 10:
+                    ax.annotate(f"{h:,.0f} ms",
+                                (patch.get_x() + patch.get_width() / 2, h),
+                                ha="center", va="bottom", fontsize=9, fontweight="bold")
+
+            # Annotations gain BLA vs First par VM policy
+            for i, vm in enumerate(VM_ORDER):
+                sub = grp[grp["vm_policy"] == vm]
+                bla_v = sub[sub["link_policy"] == "BLA"]["network_latency_ms"].values
+                fst_v = sub[sub["link_policy"] == "First"]["network_latency_ms"].values
+                if len(bla_v) and len(fst_v) and fst_v[0] > 0:
+                    gain = (fst_v[0] - bla_v[0]) / fst_v[0] * 100
+                    y_pos = max(bla_v[0], fst_v[0]) * 1.08
+                    ax.annotate(f"−{abs(gain):.1f}%",
+                                xy=(i, y_pos), ha="center",
+                                fontsize=11, fontweight="bold", color="#2ca02c")
+
+            ax.set_title("Latence Réseau Pure\npar Politique VM", fontsize=12, fontweight="bold")
+            ax.set_xlabel("VM Allocation Policy")
+            ax.set_ylabel("Network Latency (ms)")
+
+            # ── Panel droit : boxplot distribution (sans MFF) ───────────────────
+            ax2 = axes[1]
+            df_nomff = df_sel[df_sel["vm_policy"] != "MFF"].copy()
+            vm_order_nomff = [v for v in ["LWFF", "LFF"] if v in df_nomff["vm_policy"].unique()]
+
+            if not df_nomff.empty and vm_order_nomff:
+                sns.boxplot(data=df_nomff, x="vm_policy", y="network_latency_ms",
+                            hue="link_policy", palette=palette_link, ax=ax2,
+                            order=vm_order_nomff, width=0.5, linewidth=1.5,
+                            fliersize=3)
+                ax2.set_title(
+                    "Distribution Latence Réseau\n(MFF exclu — latence réseau = 0 ms)",
+                    fontsize=12, fontweight="bold")
+                ax2.set_xlabel("VM Allocation Policy")
+                ax2.set_ylabel("Network Latency (ms)")
+
+            fig.suptitle(
+                "Fig 14b: Latence Réseau Pure des Chemins Sélectionnés — " + ds_name,
+                fontsize=13, fontweight="bold")
+
+            import matplotlib.patches as mpatches
+            patches = [mpatches.Patch(color=c, label=l) for l, c in palette_link.items()]
+            fig.legend(handles=patches, loc="lower center", ncol=2, fontsize=11,
+                       bbox_to_anchor=(0.5, -0.02), frameon=True)
+            plt.tight_layout(rect=[0, 0.05, 1, 1])
+            plt.savefig(os.path.join(plot_dir, "-fig14b_network_latency_by_vm.png"), dpi=200)
+            plt.close()
 
     print("\n[SUCCÈS] Toutes les figures (1-13) ont été générées.")
 
