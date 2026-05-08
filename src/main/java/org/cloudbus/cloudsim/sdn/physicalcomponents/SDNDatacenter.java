@@ -2532,7 +2532,7 @@ public class SDNDatacenter extends Datacenter {
 	/* Safety counter for loop detection */
 	private double lastEventTime = -1;
 	private int sameTimeEventCount = 0;
-	private static final int MAX_SAME_TIME_EVENTS = 1000;
+	private static final int MAX_SAME_TIME_EVENTS = 5000; // raised for large datasets (12500 workloads)
 
 	private void checkLoopSafety() {
 		double currentTime = CloudSim.clock();
